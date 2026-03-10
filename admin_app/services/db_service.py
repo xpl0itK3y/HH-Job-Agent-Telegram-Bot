@@ -246,6 +246,43 @@ class AdminDBService:
             for row in rows
         ]
 
+    def get_resumes(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = (
+                select(Resume, User)
+                .join(User, User.id == Resume.user_id)
+                .order_by(Resume.updated_at.desc(), Resume.id.desc())
+                .limit(limit)
+            )
+            if filters.get("user_id") is not None:
+                stmt = stmt.where(Resume.user_id == filters["user_id"])
+            if filters.get("source_type"):
+                stmt = stmt.where(Resume.source_type == filters["source_type"])
+            if filters.get("username"):
+                stmt = stmt.where(User.username.ilike(f"%{filters['username']}%"))
+            rows = list(session.execute(stmt))
+
+        return [
+            {
+                "id": resume.id,
+                "user_id": resume.user_id,
+                "username": user.username,
+                "telegram_user_id": user.telegram_user_id,
+                "source_type": resume.source_type.value,
+                "file_path": resume.file_path,
+                "resume_link": resume.resume_link,
+                "raw_text": resume.raw_text,
+                "parsed_profile_json": resume.parsed_profile_json,
+                "summary": resume.summary,
+                "llm_model_name": resume.llm_model_name,
+                "llm_prompt_version": resume.llm_prompt_version,
+                "llm_generated_at": resume.llm_generated_at.isoformat() if resume.llm_generated_at else None,
+                "updated_at": resume.updated_at.isoformat(),
+            }
+            for resume, user in rows
+        ]
+
     def get_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
         filters = filters or {}
         with session_scope() as session:
