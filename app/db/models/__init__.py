@@ -1,5 +1,6 @@
 """Database models package."""
 
+from app.db.models.admin_audit_log import AdminAuditLog
 from app.db.models.admin_user import AdminRole, AdminUser
 from app.db.models.chat_message import ChatMessage, ChatMessageRole
 from app.db.models.resume import Resume, ResumeSourceType
@@ -12,6 +13,7 @@ from app.db.models.vacancy import Vacancy
 __all__ = [
     "BotStatus",
     "AdminRole",
+    "AdminAuditLog",
     "AdminUser",
     "ChatMessage",
     "ChatMessageRole",
