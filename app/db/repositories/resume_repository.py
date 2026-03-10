@@ -1,3 +1,4 @@
+from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.db.models.resume import Resume, ResumeSourceType
@@ -6,6 +7,15 @@ from app.db.models.resume import Resume, ResumeSourceType
 class ResumeRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
+
+    def get_latest_by_user_id(self, user_id: int) -> Resume | None:
+        stmt = (
+            select(Resume)
+            .where(Resume.user_id == user_id)
+            .order_by(desc(Resume.created_at))
+            .limit(1)
+        )
+        return self.session.scalar(stmt)
 
     def create(
         self,

@@ -13,6 +13,7 @@ from app.integrations.deepseek.prompts import (
     VACANCY_SUMMARY_SYSTEM_PROMPT,
 )
 from app.integrations.deepseek.schemas import ResumeProfileSchema
+from app.integrations.deepseek.schemas import CoverLetterSchema, VacancyAnalysisSchema
 
 
 class DeepSeekClient:
@@ -56,11 +57,38 @@ class DeepSeekClient:
         return ResumeProfileSchema(status="needs_review", error=last_error)
 
     def analyze_vacancy(self, user_profile: dict[str, Any], vacancy: dict[str, Any]) -> dict[str, Any]:
-        return {
-            "prompt": VACANCY_ANALYSIS_SYSTEM_PROMPT,
-            "user_profile": user_profile,
-            "vacancy": vacancy,
+        if not self.settings.deepseek_api_key or not self.settings.deepseek_base_url:
+            return VacancyAnalysisSchema(
+                match_score=0,
+                match_summary="DeepSeek credentials are not configured.",
+                missing_skills=[],
+            ).model_dump()
+
+        payload = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {"role": "system", "content": VACANCY_ANALYSIS_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        "Верни JSON с полями match_score, match_summary, missing_skills.\n\n"
+                        f"User profile:\n{json.dumps(user_profile, ensure_ascii=False)}\n\n"
+                        f"Vacancy:\n{json.dumps(vacancy, ensure_ascii=False)}"
+                    ),
+                },
+            ],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
         }
+        try:
+            content = self._chat_completion(payload)
+            return VacancyAnalysisSchema.model_validate(json.loads(content)).model_dump()
+        except (httpx.HTTPError, json.JSONDecodeError, ValidationError):
+            return VacancyAnalysisSchema(
+                match_score=0,
+                match_summary="Не удалось получить AI-анализ вакансии.",
+                missing_skills=[],
+            ).model_dump()
 
     def summarize_vacancy_description(self, description_clean: str) -> str:
         if not description_clean:
@@ -92,11 +120,34 @@ class DeepSeekClient:
         user_profile: dict[str, Any],
         vacancy: dict[str, Any],
     ) -> dict[str, Any]:
-        return {
-            "prompt": COVER_LETTER_SYSTEM_PROMPT,
-            "user_profile": user_profile,
-            "vacancy": vacancy,
+        if not self.settings.deepseek_api_key or not self.settings.deepseek_base_url:
+            return CoverLetterSchema(
+                cover_letter="Короткое сопроводительное письмо недоступно: не настроен DeepSeek."
+            ).model_dump()
+
+        payload = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {"role": "system", "content": COVER_LETTER_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        "Верни JSON с полем cover_letter.\n\n"
+                        f"User profile:\n{json.dumps(user_profile, ensure_ascii=False)}\n\n"
+                        f"Vacancy:\n{json.dumps(vacancy, ensure_ascii=False)}"
+                    ),
+                },
+            ],
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"},
         }
+        try:
+            content = self._chat_completion(payload)
+            return CoverLetterSchema.model_validate(json.loads(content)).model_dump()
+        except (httpx.HTTPError, json.JSONDecodeError, ValidationError):
+            return CoverLetterSchema(
+                cover_letter="Не удалось сгенерировать сопроводительное письмо."
+            ).model_dump()
 
     def answer_about_vacancy(
         self,

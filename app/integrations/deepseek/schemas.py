@@ -18,6 +18,20 @@ class ResumeProfileSchema(BaseModel):
     error: str | None = None
 
 
+class VacancyAnalysisSchema(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    match_score: int = 0
+    match_summary: str = ""
+    missing_skills: list[str] = Field(default_factory=list)
+
+
+class CoverLetterSchema(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    cover_letter: str = ""
+
+
 class ChatCompletionMessage(BaseModel):
     role: str
     content: str

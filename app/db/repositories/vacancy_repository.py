@@ -8,6 +8,9 @@ class VacancyRepository:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def get_by_id(self, vacancy_id: int) -> Vacancy | None:
+        return self.session.get(Vacancy, vacancy_id)
+
     def get_by_provider_and_hh_vacancy_id(
         self,
         *,
