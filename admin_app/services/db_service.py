@@ -1,10 +1,12 @@
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import and_, case, func, select
+from sqlalchemy import and_, case, func, or_, select
 
+from app.core.redis import get_redis_client
 from app.db.models.resume import Resume
 from app.db.models.chat_message import ChatMessage
+from app.db.models.scheduled_reminder import ScheduledReminder
 from app.db.models.sent_vacancy import ProcessingStatus, SentVacancy
 from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
@@ -335,6 +337,134 @@ class AdminDBService:
                 "alternate_url": vacancy.alternate_url,
             }
             for sent, vacancy in rows
+        ]
+
+    def get_queue_snapshot(self, *, limit: int = 100) -> dict:
+        stale_before = datetime.now(UTC) - timedelta(minutes=15)
+        with session_scope() as session:
+            queue_rows = list(
+                session.scalars(
+                    select(SentVacancy)
+                    .order_by(
+                        case(
+                            (SentVacancy.processing_status == ProcessingStatus.PROCESSING, 0),
+                            (SentVacancy.processing_status == ProcessingStatus.QUEUED, 1),
+                            else_=2,
+                        ),
+                        SentVacancy.queued_at.asc().nullslast(),
+                        SentVacancy.id.desc(),
+                    )
+                    .limit(limit)
+                )
+            )
+            reminder_rows = list(
+                session.scalars(
+                    select(ScheduledReminder)
+                    .order_by(ScheduledReminder.run_at.desc())
+                    .limit(20)
+                )
+            )
+
+        queue_items = [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "vacancy_id": row.vacancy_id,
+                "vacancy_tag": row.vacancy_tag,
+                "status": row.processing_status.value,
+                "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                "queued_at": row.queued_at.isoformat() if row.queued_at else None,
+                "processing_started_at": row.processing_started_at.isoformat() if row.processing_started_at else None,
+                "retry_count": row.retry_count,
+                "stalled": bool(
+                    row.processing_status == ProcessingStatus.PROCESSING
+                    and row.processing_started_at
+                    and row.processing_started_at < stale_before
+                ),
+                "last_error_text": row.last_error_text,
+            }
+            for row in queue_rows
+        ]
+
+        return {
+            "summary": {
+                "queued": sum(1 for row in queue_rows if row.processing_status == ProcessingStatus.QUEUED),
+                "processing": sum(1 for row in queue_rows if row.processing_status == ProcessingStatus.PROCESSING),
+                "ready_to_send": sum(1 for row in queue_rows if row.processing_status == ProcessingStatus.READY_TO_SEND),
+                "failed": sum(1 for row in queue_rows if row.processing_status == ProcessingStatus.FAILED),
+                "stalled": sum(1 for row in queue_items if row["stalled"]),
+            },
+            "queue_items": queue_items,
+            "locks": self.get_active_locks(),
+            "reminders": [
+                {
+                    "id": row.id,
+                    "user_id": row.user_id,
+                    "reminder_type": row.reminder_type,
+                    "run_at": row.run_at.isoformat(),
+                    "status": row.status,
+                }
+                for row in reminder_rows
+            ],
+        }
+
+    def get_active_locks(self) -> list[dict]:
+        try:
+            client = get_redis_client()
+            keys = sorted(client.keys("vacancy_send_lock:*"))
+        except Exception as exc:
+            return [{"lock_key": "redis_unavailable", "user_id": None, "status": str(exc)}]
+
+        locks = []
+        for key in keys:
+            user_id = key.rsplit(":", 1)[-1]
+            ttl = client.ttl(key)
+            locks.append(
+                {
+                    "lock_key": key,
+                    "user_id": int(user_id) if user_id.isdigit() else user_id,
+                    "ttl_seconds": ttl,
+                    "status": "locked",
+                }
+            )
+        return locks
+
+    def get_operational_logs(self, *, limit: int = 100) -> list[dict]:
+        with session_scope() as session:
+            failed_rows = list(
+                session.scalars(
+                    select(SentVacancy)
+                    .where(
+                        or_(
+                            SentVacancy.processing_status == ProcessingStatus.FAILED,
+                            SentVacancy.last_error_text.is_not(None),
+                        )
+                    )
+                    .order_by(SentVacancy.failed_at.desc().nullslast(), SentVacancy.id.desc())
+                    .limit(limit)
+                )
+            )
+
+        return [
+            {
+                "entity": "sent_vacancy",
+                "entity_id": row.id,
+                "user_id": row.user_id,
+                "vacancy_id": row.vacancy_id,
+                "vacancy_tag": row.vacancy_tag,
+                "status": row.processing_status.value,
+                "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                "retry_count": row.retry_count,
+                "timestamp": row.failed_at.isoformat()
+                if row.failed_at
+                else row.processing_started_at.isoformat()
+                if row.processing_started_at
+                else row.queued_at.isoformat()
+                if row.queued_at
+                else None,
+                "message": row.last_error_text or "No error text captured",
+            }
+            for row in failed_rows
         ]
 
     def get_user_detail(self, user_id: int) -> dict | None:
