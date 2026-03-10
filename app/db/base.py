@@ -27,4 +27,9 @@ def build_database_url() -> str:
 
 
 engine = create_engine(build_database_url(), future=True, pool_pre_ping=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    autocommit=False,
+    expire_on_commit=False,
+)
