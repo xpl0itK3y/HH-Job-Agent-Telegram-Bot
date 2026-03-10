@@ -1,4 +1,5 @@
 from admin_app.pages.admin_tools import AdminToolsPage
+from admin_app.pages.chat_history import ChatHistoryPage
 from admin_app.pages.dashboard import DashboardPage
 from admin_app.pages.operations import OperationsPage
 from admin_app.pages.resumes import ResumesPage
@@ -14,6 +15,7 @@ PAGE_REGISTRY = {
     "resumes": ResumesPage(),
     "search_settings": SearchSettingsPage(),
     "vacancies": VacanciesPage(),
+    "chat_history": ChatHistoryPage(),
     "operations": OperationsPage(),
     "admin_tools": AdminToolsPage(),
 }

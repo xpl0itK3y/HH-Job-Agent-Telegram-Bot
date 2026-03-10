@@ -327,6 +327,47 @@ class AdminDBService:
 
         return settings_rows[:limit]
 
+    def get_chat_history(self, *, filters: dict | None = None, limit: int = 200) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = (
+                select(ChatMessage, User, Vacancy, SentVacancy)
+                .join(User, User.id == ChatMessage.user_id)
+                .join(Vacancy, Vacancy.id == ChatMessage.vacancy_id)
+                .outerjoin(
+                    SentVacancy,
+                    and_(
+                        SentVacancy.user_id == ChatMessage.user_id,
+                        SentVacancy.vacancy_id == ChatMessage.vacancy_id,
+                    ),
+                )
+                .order_by(ChatMessage.created_at.desc(), ChatMessage.id.desc())
+                .limit(limit)
+            )
+            if filters.get("user_id") is not None:
+                stmt = stmt.where(ChatMessage.user_id == filters["user_id"])
+            if filters.get("role"):
+                stmt = stmt.where(ChatMessage.role == filters["role"])
+            if filters.get("vacancy_tag"):
+                stmt = stmt.where(SentVacancy.vacancy_tag.ilike(f"%{filters['vacancy_tag']}%"))
+            rows = list(session.execute(stmt))
+
+        return [
+            {
+                "id": message.id,
+                "user_id": message.user_id,
+                "username": user.username,
+                "telegram_user_id": user.telegram_user_id,
+                "vacancy_id": message.vacancy_id,
+                "vacancy_title": vacancy.title,
+                "vacancy_tag": sent_vacancy.vacancy_tag if sent_vacancy else None,
+                "role": message.role.value,
+                "message_text": message.message_text,
+                "created_at": message.created_at.isoformat(),
+            }
+            for message, user, vacancy, sent_vacancy in rows
+        ]
+
     def get_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
         filters = filters or {}
         with session_scope() as session:
