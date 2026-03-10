@@ -17,7 +17,7 @@ class AdminToolsPage:
         )
 
         admin_user_id = st.session_state.get("admin_auth", {}).get("admin_user_id")
-        user_tab, queue_tab = st.tabs(["User Controls", "Queue Recovery"])
+        user_tab, resume_tab, queue_tab = st.tabs(["User Controls", "Resume", "Queue Recovery"])
 
         with user_tab:
             user_id = st.number_input("User id", min_value=1, step=1, key="admin_tools_user_id")
@@ -28,6 +28,11 @@ class AdminToolsPage:
             with right:
                 if st.button("Resume User", use_container_width=True):
                     self._show_result(self.actions.resume_user(int(user_id), admin_user_id=admin_user_id))
+
+        with resume_tab:
+            resume_user_id = st.number_input("Resume user id", min_value=1, step=1, key="admin_tools_resume_user_id")
+            if st.button("Reprocess Resume", use_container_width=True):
+                self._show_result(self.actions.reprocess_resume(int(resume_user_id), admin_user_id=admin_user_id))
 
         with queue_tab:
             sent_vacancy_id = st.number_input("Sent vacancy id", min_value=1, step=1, key="admin_tools_sent_vacancy_id")

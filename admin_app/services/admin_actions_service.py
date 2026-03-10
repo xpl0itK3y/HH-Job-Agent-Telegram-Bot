@@ -1,14 +1,21 @@
+from datetime import UTC, datetime
+
 from sqlalchemy.orm import Session
 
 from app.db.repositories.admin_audit_log_repository import AdminAuditLogRepository
+from app.db.repositories.resume_repository import ResumeRepository
 from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus, SentVacancy
 from app.db.models.user import BotStatus, User
 from app.db.repositories.scheduled_reminder_repository import ScheduledReminderRepository
 from app.db.session import session_scope
+from app.integrations.deepseek.client import DeepSeekClient
 from app.tasks.analysis import analyze_and_send_vacancy
 
 
 class AdminActionsService:
+    def __init__(self) -> None:
+        self.deepseek_client = DeepSeekClient()
+
     def pause_user(self, user_id: int, *, admin_user_id: int | None = None) -> dict:
         with session_scope() as session:
             user = session.get(User, user_id)
@@ -96,6 +103,39 @@ class AdminActionsService:
 
         analyze_and_send_vacancy.delay(telegram_user_id, vacancy_id)
         return {"ok": True, "message": f"Sent vacancy {sent_vacancy_id} restarted"}
+
+    def reprocess_resume(self, user_id: int, *, admin_user_id: int | None = None) -> dict:
+        with session_scope() as session:
+            user = session.get(User, user_id)
+            if user is None:
+                return {"ok": False, "message": "User not found"}
+            latest_resume = ResumeRepository(session).get_latest_by_user_id(user_id)
+            if latest_resume is None:
+                return {"ok": False, "message": "Resume not found"}
+
+            profile = self.deepseek_client.extract_resume_profile(latest_resume.raw_text)
+            new_resume = ResumeRepository(session).create(
+                user_id=user_id,
+                source_type=latest_resume.source_type,
+                file_path=latest_resume.file_path,
+                resume_link=latest_resume.resume_link,
+                raw_text=latest_resume.raw_text,
+                parsed_profile_json=profile.model_dump(),
+                summary=profile.summary,
+                llm_prompt_version="resume_profile_v1",
+                llm_model_name=self.deepseek_client.settings.deepseek_model,
+                llm_generated_at=datetime.now(UTC),
+            )
+            self._write_audit_log(
+                session=session,
+                admin_user_id=admin_user_id,
+                action_type="reprocess_resume",
+                entity_type="resume",
+                entity_id=str(new_resume.id),
+                details_json={"user_id": user_id, "source_type": latest_resume.source_type.value},
+            )
+            session.flush()
+            return {"ok": True, "message": f"Resume for user {user_id} reprocessed"}
 
     def mark_sent_vacancy_failed(
         self,
