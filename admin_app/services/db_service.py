@@ -283,6 +283,50 @@ class AdminDBService:
             for resume, user in rows
         ]
 
+    def get_search_settings(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = (
+                select(SearchSetting, User)
+                .join(User, User.id == SearchSetting.user_id)
+                .order_by(SearchSetting.updated_at.desc(), SearchSetting.id.desc())
+                .limit(limit)
+            )
+            if filters.get("user_id") is not None:
+                stmt = stmt.where(SearchSetting.user_id == filters["user_id"])
+            if filters.get("username"):
+                stmt = stmt.where(User.username.ilike(f"%{filters['username']}%"))
+            if filters.get("is_enabled") is True:
+                stmt = stmt.where(SearchSetting.is_enabled.is_(True))
+            elif filters.get("is_enabled") is False:
+                stmt = stmt.where(SearchSetting.is_enabled.is_(False))
+            rows = list(session.execute(stmt))
+
+        settings_rows = []
+        for search_setting, user in rows:
+            countries = search_setting.selected_countries_json or []
+            if filters.get("country") and filters["country"] not in countries:
+                continue
+            settings_rows.append(
+                {
+                    "id": search_setting.id,
+                    "user_id": search_setting.user_id,
+                    "username": user.username,
+                    "telegram_user_id": user.telegram_user_id,
+                    "keywords": search_setting.keywords,
+                    "selected_countries_json": countries,
+                    "area_ids_json": search_setting.area_ids_json,
+                    "employment_type": search_setting.employment_type,
+                    "work_format": search_setting.work_format,
+                    "professional_role": search_setting.professional_role,
+                    "search_extra_json": search_setting.search_extra_json,
+                    "is_enabled": search_setting.is_enabled,
+                    "updated_at": search_setting.updated_at.isoformat(),
+                }
+            )
+
+        return settings_rows[:limit]
+
     def get_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
         filters = filters or {}
         with session_scope() as session:
