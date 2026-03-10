@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models.user import User
+from app.db.models.user import BotStatus, User
 
 
 class UserRepository:
@@ -37,5 +37,13 @@ class UserRepository:
         user.first_name = first_name
         user.last_name = last_name
         user.language_code = language_code
+        self.session.flush()
+        return user
+
+    def set_bot_status(self, *, telegram_user_id: int, bot_status: BotStatus) -> User | None:
+        user = self.get_by_telegram_user_id(telegram_user_id)
+        if user is None:
+            return None
+        user.bot_status = bot_status
         self.session.flush()
         return user
