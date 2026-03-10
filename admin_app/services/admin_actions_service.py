@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
 
+from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from app.db.models.chat_message import ChatMessage
 from app.db.repositories.admin_audit_log_repository import AdminAuditLogRepository
 from app.db.repositories.resume_repository import ResumeRepository
 from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus, SentVacancy
@@ -136,6 +138,25 @@ class AdminActionsService:
             )
             session.flush()
             return {"ok": True, "message": f"Resume for user {user_id} reprocessed"}
+
+    def delete_chat_history(self, user_id: int, *, admin_user_id: int | None = None) -> dict:
+        with session_scope() as session:
+            user = session.get(User, user_id)
+            if user is None:
+                return {"ok": False, "message": "User not found"}
+            deleted_count = session.execute(
+                delete(ChatMessage).where(ChatMessage.user_id == user_id)
+            ).rowcount or 0
+            self._write_audit_log(
+                session=session,
+                admin_user_id=admin_user_id,
+                action_type="delete_chat_history",
+                entity_type="user",
+                entity_id=str(user_id),
+                details_json={"deleted_messages": deleted_count},
+            )
+            session.flush()
+            return {"ok": True, "message": f"Deleted {deleted_count} chat messages for user {user_id}"}
 
     def mark_sent_vacancy_failed(
         self,

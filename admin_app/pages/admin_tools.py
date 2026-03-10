@@ -17,7 +17,9 @@ class AdminToolsPage:
         )
 
         admin_user_id = st.session_state.get("admin_auth", {}).get("admin_user_id")
-        user_tab, resume_tab, queue_tab = st.tabs(["User Controls", "Resume", "Queue Recovery"])
+        user_tab, resume_tab, queue_tab, cleanup_tab = st.tabs(
+            ["User Controls", "Resume", "Queue Recovery", "Cleanup"]
+        )
 
         with user_tab:
             user_id = st.number_input("User id", min_value=1, step=1, key="admin_tools_user_id")
@@ -61,6 +63,11 @@ class AdminToolsPage:
                             admin_user_id=admin_user_id,
                         )
                     )
+
+        with cleanup_tab:
+            chat_user_id = st.number_input("Chat user id", min_value=1, step=1, key="admin_tools_chat_user_id")
+            if st.button("Delete Chat History", use_container_width=True):
+                self._show_result(self.actions.delete_chat_history(int(chat_user_id), admin_user_id=admin_user_id))
 
     @staticmethod
     def _show_result(result: dict) -> None:
