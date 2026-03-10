@@ -16,7 +16,7 @@ class AnalyticsService:
             "queued_total": self.db.count_sent_by_status(ProcessingStatus.QUEUED),
             "processing_total": self.db.count_sent_by_status(ProcessingStatus.PROCESSING),
             "failed_total": self.db.count_sent_by_status(ProcessingStatus.FAILED),
-            "sent_today": self.db.count_sent_by_status(ProcessingStatus.SENT),
+            "sent_today": self.db.count_sent_today(),
         }
 
     def get_recent_sent_vacancies(self) -> list[dict]:
@@ -24,3 +24,12 @@ class AnalyticsService:
 
     def get_recent_users(self) -> list[dict]:
         return self.db.get_recent_users()
+
+    def get_country_split(self) -> list[dict]:
+        return self.db.get_country_split()
+
+    def get_vacancy_activity(self) -> list[dict]:
+        return self.db.get_vacancy_activity()
+
+    def get_recent_failures(self) -> list[dict]:
+        return self.db.get_recent_failures()

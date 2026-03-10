@@ -13,6 +13,10 @@ class DashboardPage:
 
     def render(self) -> None:
         summary = self.analytics.get_dashboard_summary()
+        country_split = self.analytics.get_country_split()
+        activity = self.analytics.get_vacancy_activity()
+        failures = self.analytics.get_recent_failures()
+
         st.markdown('<div class="admin-page-title">Dashboard</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="admin-page-subtitle">Operational view over users, vacancies and queue health.</div>',
@@ -53,3 +57,15 @@ class DashboardPage:
             dataframe_section("Recent sent vacancies", self.analytics.get_recent_sent_vacancies())
         with right:
             dataframe_section("Recent users", self.analytics.get_recent_users())
+
+        chart_col, split_col = st.columns([1.4, 1])
+        with chart_col:
+            st.markdown("#### Vacancy activity")
+            if activity:
+                st.line_chart(activity, x="date", y=["queued", "sent"], use_container_width=True)
+            else:
+                st.info("No activity yet.")
+        with split_col:
+            dataframe_section("Country split", country_split)
+
+        dataframe_section("Recent failures", failures)

@@ -1,8 +1,10 @@
 from collections.abc import Sequence
+from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 
 from app.db.models.sent_vacancy import ProcessingStatus, SentVacancy
+from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
 from app.db.models.vacancy import Vacancy
 from app.db.session import session_scope
@@ -47,6 +49,22 @@ class AdminDBService:
             stmt = select(func.count()).select_from(SentVacancy).where(SentVacancy.processing_status == status)
             return session.scalar(stmt) or 0
 
+    def count_sent_today(self) -> int:
+        start_of_day = datetime.combine(date.today(), time.min, tzinfo=UTC)
+        with session_scope() as session:
+            stmt = (
+                select(func.count())
+                .select_from(SentVacancy)
+                .where(
+                    and_(
+                        SentVacancy.processing_status == ProcessingStatus.SENT,
+                        SentVacancy.sent_at.is_not(None),
+                        SentVacancy.sent_at >= start_of_day,
+                    )
+                )
+            )
+            return session.scalar(stmt) or 0
+
     def get_recent_sent_vacancies(self, limit: int = 10) -> list[dict]:
         with session_scope() as session:
             stmt = select(SentVacancy).order_by(SentVacancy.id.desc()).limit(limit)
@@ -65,3 +83,93 @@ class AdminDBService:
 
     def get_recent_users(self, limit: int = 10) -> list[dict]:
         return self.get_users(limit=limit)
+
+    def get_country_split(self) -> list[dict]:
+        with session_scope() as session:
+            rows = list(
+                session.execute(
+                    select(SearchSetting.selected_countries_json)
+                    .where(SearchSetting.is_enabled.is_(True))
+                    .order_by(SearchSetting.id.desc())
+                )
+            )
+
+        counters = {
+            "KZ": 0,
+            "RU": 0,
+            "KZ + RU": 0,
+            "Other": 0,
+        }
+        for (selected_countries,) in rows:
+            selected = tuple(sorted(selected_countries or []))
+            if selected == ("KZ",):
+                counters["KZ"] += 1
+            elif selected == ("RU",):
+                counters["RU"] += 1
+            elif selected == ("KZ", "RU"):
+                counters["KZ + RU"] += 1
+            else:
+                counters["Other"] += 1
+
+        return [{"segment": segment, "users": total} for segment, total in counters.items() if total]
+
+    def get_vacancy_activity(self, days: int = 7) -> list[dict]:
+        start_at = datetime.now(UTC) - timedelta(days=max(days - 1, 0))
+        with session_scope() as session:
+            rows = list(
+                session.execute(
+                    select(
+                        func.date_trunc("day", SentVacancy.queued_at).label("day"),
+                        func.count().label("queued"),
+                    )
+                    .where(SentVacancy.queued_at.is_not(None), SentVacancy.queued_at >= start_at)
+                    .group_by("day")
+                    .order_by("day")
+                )
+            )
+            sent_rows = list(
+                session.execute(
+                    select(
+                        func.date_trunc("day", SentVacancy.sent_at).label("day"),
+                        func.count().label("sent"),
+                    )
+                    .where(SentVacancy.sent_at.is_not(None), SentVacancy.sent_at >= start_at)
+                    .group_by("day")
+                    .order_by("day")
+                )
+            )
+
+        activity_map: dict[str, dict[str, int | str]] = {}
+        for day, queued in rows:
+            key = day.date().isoformat()
+            activity_map[key] = {"date": key, "queued": int(queued), "sent": 0}
+        for day, sent in sent_rows:
+            key = day.date().isoformat()
+            if key not in activity_map:
+                activity_map[key] = {"date": key, "queued": 0, "sent": 0}
+            activity_map[key]["sent"] = int(sent)
+
+        return [activity_map[key] for key in sorted(activity_map)]
+
+    def get_recent_failures(self, limit: int = 20) -> list[dict]:
+        with session_scope() as session:
+            stmt = (
+                select(SentVacancy)
+                .where(SentVacancy.processing_status == ProcessingStatus.FAILED)
+                .order_by(SentVacancy.failed_at.desc().nullslast(), SentVacancy.id.desc())
+                .limit(limit)
+            )
+            rows = list(session.scalars(stmt))
+
+        return [
+            {
+                "id": row.id,
+                "user_id": row.user_id,
+                "vacancy_id": row.vacancy_id,
+                "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                "retries": row.retry_count,
+                "failed_at": row.failed_at.isoformat() if row.failed_at else None,
+                "error": row.last_error_text,
+            }
+            for row in rows
+        ]
