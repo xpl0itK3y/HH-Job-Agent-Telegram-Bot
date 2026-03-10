@@ -27,6 +27,7 @@ def require_authentication() -> dict:
             else:
                 st.session_state["admin_auth"] = {
                     "is_authenticated": True,
+                    "admin_user_id": result.admin_user_id,
                     "username": result.username,
                     "role": result.role,
                 }

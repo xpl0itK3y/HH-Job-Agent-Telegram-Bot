@@ -1,5 +1,6 @@
 """Database repositories package."""
 
+from app.db.repositories.admin_audit_log_repository import AdminAuditLogRepository
 from app.db.repositories.admin_user_repository import AdminUserRepository
 from app.db.repositories.chat_message_repository import ChatMessageRepository
 from app.db.repositories.search_setting_repository import SearchSettingRepository
@@ -11,6 +12,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.vacancy_repository import VacancyRepository
 
 __all__ = [
+    "AdminAuditLogRepository",
     "AdminUserRepository",
     "ChatMessageRepository",
     "ResumeRepository",

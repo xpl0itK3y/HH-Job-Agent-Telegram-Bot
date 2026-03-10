@@ -16,6 +16,7 @@ class AdminToolsPage:
             unsafe_allow_html=True,
         )
 
+        admin_user_id = st.session_state.get("admin_auth", {}).get("admin_user_id")
         user_tab, queue_tab = st.tabs(["User Controls", "Queue Recovery"])
 
         with user_tab:
@@ -23,17 +24,19 @@ class AdminToolsPage:
             left, right = st.columns(2)
             with left:
                 if st.button("Pause User", use_container_width=True):
-                    self._show_result(self.actions.pause_user(int(user_id)))
+                    self._show_result(self.actions.pause_user(int(user_id), admin_user_id=admin_user_id))
             with right:
                 if st.button("Resume User", use_container_width=True):
-                    self._show_result(self.actions.resume_user(int(user_id)))
+                    self._show_result(self.actions.resume_user(int(user_id), admin_user_id=admin_user_id))
 
         with queue_tab:
             sent_vacancy_id = st.number_input("Sent vacancy id", min_value=1, step=1, key="admin_tools_sent_vacancy_id")
             left, right = st.columns(2)
             with left:
                 if st.button("Move To Queue", use_container_width=True):
-                    self._show_result(self.actions.requeue_sent_vacancy(int(sent_vacancy_id)))
+                    self._show_result(
+                        self.actions.requeue_sent_vacancy(int(sent_vacancy_id), admin_user_id=admin_user_id)
+                    )
             with right:
                 error_text = st.text_input(
                     "Failure reason",
@@ -41,7 +44,13 @@ class AdminToolsPage:
                     key="admin_tools_failure_reason",
                 )
                 if st.button("Mark Failed", use_container_width=True):
-                    self._show_result(self.actions.mark_sent_vacancy_failed(int(sent_vacancy_id), error_text))
+                    self._show_result(
+                        self.actions.mark_sent_vacancy_failed(
+                            int(sent_vacancy_id),
+                            error_text,
+                            admin_user_id=admin_user_id,
+                        )
+                    )
 
     @staticmethod
     def _show_result(result: dict) -> None:
