@@ -7,6 +7,7 @@ from app.db.repositories.vacancy_repository import VacancyRepository
 from app.db.session import session_scope
 from app.integrations.deepseek.client import DeepSeekClient
 from app.services.employer_check_service import EmployerCheckService
+from app.services.vacancy_card_service import VacancyCardService
 from app.utils.vacancy_tag import build_vacancy_tag
 
 
@@ -14,6 +15,7 @@ class VacancyAIService:
     def __init__(self) -> None:
         self.deepseek_client = DeepSeekClient()
         self.employer_check_service = EmployerCheckService()
+        self.vacancy_card_service = VacancyCardService()
 
     def analyze_and_prepare(self, *, telegram_user: TelegramUser, vacancy_id: int) -> dict:
         with session_scope() as session:
@@ -79,6 +81,20 @@ class VacancyAIService:
                     sent_vacancy.vacancy_tag = generated_tag
                     session.flush()
 
+            card_path = self.vacancy_card_service.render_png(
+                vacancy={
+                    **vacancy_payload,
+                    "id": vacancy.id,
+                    "salary_from": vacancy.salary_from,
+                    "salary_to": vacancy.salary_to,
+                    "salary_currency": vacancy.salary_currency,
+                    "area_name": vacancy.area_name,
+                    "work_format": vacancy.work_format,
+                    "experience": vacancy.experience,
+                },
+                vacancy_tag=sent_vacancy.vacancy_tag,
+            )
+
             return {
                 "sent_vacancy_id": sent_vacancy.id,
                 "vacancy_tag": sent_vacancy.vacancy_tag,
@@ -87,4 +103,5 @@ class VacancyAIService:
                 "missing_skills_json": sent_vacancy.missing_skills_json,
                 "employer_check_json": sent_vacancy.employer_check_json,
                 "cover_letter": sent_vacancy.cover_letter,
+                "card_path": str(card_path),
             }
