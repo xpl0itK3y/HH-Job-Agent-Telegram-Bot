@@ -4,10 +4,14 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from app.db.models.chat_message import ChatMessage
+from app.db.models.resume import Resume
+from app.db.models.scheduled_reminder import ScheduledReminder
 from app.db.repositories.admin_audit_log_repository import AdminAuditLogRepository
 from app.db.repositories.resume_repository import ResumeRepository
 from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus, SentVacancy
+from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
+from app.db.models.vacancy import Vacancy
 from app.db.repositories.scheduled_reminder_repository import ScheduledReminderRepository
 from app.db.session import session_scope
 from app.integrations.deepseek.client import DeepSeekClient
@@ -157,6 +161,57 @@ class AdminActionsService:
             )
             session.flush()
             return {"ok": True, "message": f"Deleted {deleted_count} chat messages for user {user_id}"}
+
+    def delete_user(self, user_id: int, *, admin_user_id: int | None = None) -> dict:
+        with session_scope() as session:
+            user = session.get(User, user_id)
+            if user is None:
+                return {"ok": False, "message": "User not found"}
+
+            deleted_chat = session.execute(delete(ChatMessage).where(ChatMessage.user_id == user_id)).rowcount or 0
+            deleted_sent = session.execute(delete(SentVacancy).where(SentVacancy.user_id == user_id)).rowcount or 0
+            deleted_resumes = session.execute(delete(Resume).where(Resume.user_id == user_id)).rowcount or 0
+            deleted_settings = session.execute(delete(SearchSetting).where(SearchSetting.user_id == user_id)).rowcount or 0
+            deleted_reminders = (
+                session.execute(delete(ScheduledReminder).where(ScheduledReminder.user_id == user_id)).rowcount or 0
+            )
+            session.delete(user)
+            self._write_audit_log(
+                session=session,
+                admin_user_id=admin_user_id,
+                action_type="delete_user",
+                entity_type="user",
+                entity_id=str(user_id),
+                details_json={
+                    "deleted_chat": deleted_chat,
+                    "deleted_sent": deleted_sent,
+                    "deleted_resumes": deleted_resumes,
+                    "deleted_settings": deleted_settings,
+                    "deleted_reminders": deleted_reminders,
+                },
+            )
+            session.flush()
+            return {"ok": True, "message": f"User {user_id} deleted"}
+
+    def delete_vacancy(self, vacancy_id: int, *, admin_user_id: int | None = None) -> dict:
+        with session_scope() as session:
+            vacancy = session.get(Vacancy, vacancy_id)
+            if vacancy is None:
+                return {"ok": False, "message": "Vacancy not found"}
+
+            deleted_chat = session.execute(delete(ChatMessage).where(ChatMessage.vacancy_id == vacancy_id)).rowcount or 0
+            deleted_sent = session.execute(delete(SentVacancy).where(SentVacancy.vacancy_id == vacancy_id)).rowcount or 0
+            session.delete(vacancy)
+            self._write_audit_log(
+                session=session,
+                admin_user_id=admin_user_id,
+                action_type="delete_vacancy",
+                entity_type="vacancy",
+                entity_id=str(vacancy_id),
+                details_json={"deleted_chat": deleted_chat, "deleted_sent": deleted_sent},
+            )
+            session.flush()
+            return {"ok": True, "message": f"Vacancy {vacancy_id} deleted"}
 
     def mark_sent_vacancy_failed(
         self,

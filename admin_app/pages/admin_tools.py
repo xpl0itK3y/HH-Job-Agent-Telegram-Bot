@@ -17,8 +17,8 @@ class AdminToolsPage:
         )
 
         admin_user_id = st.session_state.get("admin_auth", {}).get("admin_user_id")
-        user_tab, resume_tab, queue_tab, cleanup_tab = st.tabs(
-            ["User Controls", "Resume", "Queue Recovery", "Cleanup"]
+        user_tab, resume_tab, queue_tab, cleanup_tab, destructive_tab = st.tabs(
+            ["User Controls", "Resume", "Queue Recovery", "Cleanup", "Destructive"]
         )
 
         with user_tab:
@@ -68,6 +68,22 @@ class AdminToolsPage:
             chat_user_id = st.number_input("Chat user id", min_value=1, step=1, key="admin_tools_chat_user_id")
             if st.button("Delete Chat History", use_container_width=True):
                 self._show_result(self.actions.delete_chat_history(int(chat_user_id), admin_user_id=admin_user_id))
+
+        with destructive_tab:
+            left, right = st.columns(2)
+            with left:
+                delete_user_id = st.number_input("Delete user id", min_value=1, step=1, key="admin_tools_delete_user_id")
+                if st.button("Delete User", use_container_width=True):
+                    self._show_result(self.actions.delete_user(int(delete_user_id), admin_user_id=admin_user_id))
+            with right:
+                delete_vacancy_id = st.number_input(
+                    "Delete vacancy id",
+                    min_value=1,
+                    step=1,
+                    key="admin_tools_delete_vacancy_id",
+                )
+                if st.button("Delete Vacancy", use_container_width=True):
+                    self._show_result(self.actions.delete_vacancy(int(delete_vacancy_id), admin_user_id=admin_user_id))
 
     @staticmethod
     def _show_result(result: dict) -> None:
