@@ -5,6 +5,7 @@ from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus, SentVacan
 from app.db.models.user import BotStatus, User
 from app.db.repositories.scheduled_reminder_repository import ScheduledReminderRepository
 from app.db.session import session_scope
+from app.tasks.analysis import analyze_and_send_vacancy
 
 
 class AdminActionsService:
@@ -66,6 +67,35 @@ class AdminActionsService:
             )
             session.flush()
             return {"ok": True, "message": f"Sent vacancy {sent_vacancy_id} moved to queue"}
+
+    def rerun_sent_vacancy(self, sent_vacancy_id: int, *, admin_user_id: int | None = None) -> dict:
+        with session_scope() as session:
+            sent_vacancy = session.get(SentVacancy, sent_vacancy_id)
+            if sent_vacancy is None:
+                return {"ok": False, "message": "Sent vacancy not found"}
+            user = session.get(User, sent_vacancy.user_id)
+            if user is None:
+                return {"ok": False, "message": "User not found"}
+            sent_vacancy.processing_status = ProcessingStatus.QUEUED
+            sent_vacancy.current_pipeline_step = PipelineStep.CLEANING
+            sent_vacancy.last_error_text = None
+            sent_vacancy.processing_started_at = None
+            sent_vacancy.ready_to_send_at = None
+            sent_vacancy.failed_at = None
+            self._write_audit_log(
+                session=session,
+                admin_user_id=admin_user_id,
+                action_type="rerun_sent_vacancy",
+                entity_type="sent_vacancy",
+                entity_id=str(sent_vacancy_id),
+                details_json={"vacancy_id": sent_vacancy.vacancy_id, "user_id": sent_vacancy.user_id},
+            )
+            telegram_user_id = user.telegram_user_id
+            vacancy_id = sent_vacancy.vacancy_id
+            session.flush()
+
+        analyze_and_send_vacancy.delay(telegram_user_id, vacancy_id)
+        return {"ok": True, "message": f"Sent vacancy {sent_vacancy_id} restarted"}
 
     def mark_sent_vacancy_failed(
         self,

@@ -31,11 +31,16 @@ class AdminToolsPage:
 
         with queue_tab:
             sent_vacancy_id = st.number_input("Sent vacancy id", min_value=1, step=1, key="admin_tools_sent_vacancy_id")
-            left, right = st.columns(2)
+            left, center, right = st.columns(3)
             with left:
                 if st.button("Move To Queue", use_container_width=True):
                     self._show_result(
                         self.actions.requeue_sent_vacancy(int(sent_vacancy_id), admin_user_id=admin_user_id)
+                    )
+            with center:
+                if st.button("Rerun Vacancy", use_container_width=True):
+                    self._show_result(
+                        self.actions.rerun_sent_vacancy(int(sent_vacancy_id), admin_user_id=admin_user_id)
                     )
             with right:
                 error_text = st.text_input(
