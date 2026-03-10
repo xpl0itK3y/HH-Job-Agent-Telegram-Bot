@@ -1,15 +1,21 @@
 import streamlit as st
 
+from admin_app.components.auth import is_admin
 from admin_app.services.admin_actions_service import AdminActionsService
 
 
 class AdminToolsPage:
     title = "Admin Tools"
+    admin_only = True
 
     def __init__(self) -> None:
         self.actions = AdminActionsService()
 
     def render(self) -> None:
+        if not is_admin():
+            st.error("Admin role is required for destructive tools.")
+            return
+
         st.markdown('<div class="admin-page-title">Admin Tools</div>', unsafe_allow_html=True)
         st.markdown(
             '<div class="admin-page-subtitle">Manual operator actions for user status and queue recovery.</div>',

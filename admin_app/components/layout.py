@@ -2,6 +2,8 @@ from typing import Mapping
 
 import streamlit as st
 
+from admin_app.components.auth import is_admin
+
 
 def apply_app_chrome() -> None:
     st.markdown(
@@ -64,15 +66,20 @@ def render_sidebar(page_registry: Mapping[str, object]) -> str:
     with st.sidebar:
         st.markdown("### HH Job Agent")
         st.caption("Internal admin workspace")
-        labels = {key: page.title for key, page in page_registry.items()}
-        current_page = st.session_state.get("admin_page", list(page_registry.keys())[0])
-        if current_page not in page_registry:
-            current_page = list(page_registry.keys())[0]
+        visible_registry = {
+            key: page
+            for key, page in page_registry.items()
+            if is_admin() or getattr(page, "admin_only", False) is False
+        }
+        labels = {key: page.title for key, page in visible_registry.items()}
+        current_page = st.session_state.get("admin_page", list(visible_registry.keys())[0])
+        if current_page not in visible_registry:
+            current_page = list(visible_registry.keys())[0]
         choice = st.radio(
             "Sections",
-            options=list(page_registry.keys()),
+            options=list(visible_registry.keys()),
             format_func=lambda key: labels[key],
-            index=list(page_registry.keys()).index(current_page),
+            index=list(visible_registry.keys()).index(current_page),
             label_visibility="collapsed",
         )
         st.session_state["admin_page"] = choice

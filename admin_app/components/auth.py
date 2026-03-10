@@ -3,8 +3,16 @@ import streamlit as st
 from admin_app.services.auth_service import AdminAuthService
 
 
+def get_auth_state() -> dict:
+    return st.session_state.setdefault("admin_auth", {})
+
+
+def is_admin() -> bool:
+    return get_auth_state().get("role") == "admin"
+
+
 def require_authentication() -> dict:
-    auth_state = st.session_state.setdefault("admin_auth", {})
+    auth_state = get_auth_state()
     if auth_state.get("is_authenticated"):
         return auth_state
 

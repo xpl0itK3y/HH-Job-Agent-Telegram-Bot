@@ -6,10 +6,12 @@ from sqlalchemy import and_, case, func, or_, select
 from app.core.redis import get_redis_client
 from app.db.models.resume import Resume
 from app.db.models.chat_message import ChatMessage
+from app.db.models.admin_audit_log import AdminAuditLog
 from app.db.models.scheduled_reminder import ScheduledReminder
 from app.db.models.sent_vacancy import ProcessingStatus, SentVacancy
 from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
+from app.db.models.admin_user import AdminUser
 from app.db.models.vacancy import Vacancy
 from app.db.session import session_scope
 
@@ -366,6 +368,37 @@ class AdminDBService:
                 "created_at": message.created_at.isoformat(),
             }
             for message, user, vacancy, sent_vacancy in rows
+        ]
+
+    def get_admin_audit_logs(self, *, filters: dict | None = None, limit: int = 200) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = (
+                select(AdminAuditLog, AdminUser)
+                .join(AdminUser, AdminUser.id == AdminAuditLog.admin_user_id)
+                .order_by(AdminAuditLog.created_at.desc(), AdminAuditLog.id.desc())
+                .limit(limit)
+            )
+            if filters.get("action_type"):
+                stmt = stmt.where(AdminAuditLog.action_type.ilike(f"%{filters['action_type']}%"))
+            if filters.get("entity_type"):
+                stmt = stmt.where(AdminAuditLog.entity_type == filters["entity_type"])
+            if filters.get("admin_username"):
+                stmt = stmt.where(AdminUser.username.ilike(f"%{filters['admin_username']}%"))
+            rows = list(session.execute(stmt))
+
+        return [
+            {
+                "id": audit.id,
+                "admin_user_id": audit.admin_user_id,
+                "admin_username": admin_user.username,
+                "action_type": audit.action_type,
+                "entity_type": audit.entity_type,
+                "entity_id": audit.entity_id,
+                "details_json": audit.details_json,
+                "created_at": audit.created_at.isoformat(),
+            }
+            for audit, admin_user in rows
         ]
 
     def get_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
