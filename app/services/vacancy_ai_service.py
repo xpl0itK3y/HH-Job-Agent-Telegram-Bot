@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 from aiogram.types import User as TelegramUser
 
 from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus
@@ -65,6 +67,22 @@ class VacancyAIService:
             )
 
             sent_repository = SentVacancyRepository(session)
+            cached_sent = sent_repository.get_by_user_and_vacancy(
+                user_id=user.id,
+                vacancy_id=vacancy.id,
+            )
+            if (
+                cached_sent is not None
+                and cached_sent.match_summary
+                and cached_sent.cover_letter
+                and cached_sent.missing_skills_json is not None
+            ):
+                analysis = {
+                    "match_score": cached_sent.match_score,
+                    "match_summary": cached_sent.match_summary,
+                    "missing_skills": cached_sent.missing_skills_json,
+                }
+                cover_letter_data = {"cover_letter": cached_sent.cover_letter}
             sent_vacancy = sent_repository.create_or_update(
                 user_id=user.id,
                 vacancy_id=vacancy.id,
@@ -74,6 +92,9 @@ class VacancyAIService:
                 missing_skills_json=analysis.get("missing_skills"),
                 employer_check_json=employer_check,
                 cover_letter=cover_letter_data.get("cover_letter"),
+                llm_prompt_version="vacancy_match_v1",
+                llm_model_name=self.deepseek_client.settings.deepseek_model,
+                llm_generated_at=datetime.now(UTC),
                 processing_status=ProcessingStatus.PROCESSING,
                 current_pipeline_step=PipelineStep.CARD_GENERATION,
             )

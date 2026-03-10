@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from enum import StrEnum
 
-from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -28,5 +30,8 @@ class Resume(TimestampMixin, Base):
     raw_text: Mapped[str] = mapped_column(Text, nullable=False)
     parsed_profile_json: Mapped[dict | None] = mapped_column(JSONB)
     summary: Mapped[str | None] = mapped_column(Text)
+    llm_prompt_version: Mapped[str | None] = mapped_column(String(64))
+    llm_model_name: Mapped[str | None] = mapped_column(String(128))
+    llm_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     user = relationship("User")

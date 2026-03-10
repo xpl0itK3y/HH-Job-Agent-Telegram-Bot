@@ -39,6 +39,9 @@ class SentVacancy(Base):
     missing_skills_json: Mapped[list | None] = mapped_column(JSONB)
     employer_check_json: Mapped[dict | None] = mapped_column(JSONB)
     cover_letter: Mapped[str | None] = mapped_column(Text)
+    llm_prompt_version: Mapped[str | None] = mapped_column(String(64))
+    llm_model_name: Mapped[str | None] = mapped_column(String(128))
+    llm_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     processing_status: Mapped[ProcessingStatus] = mapped_column(
         Enum(ProcessingStatus, name="processing_status_enum"),
         default=ProcessingStatus.QUEUED,

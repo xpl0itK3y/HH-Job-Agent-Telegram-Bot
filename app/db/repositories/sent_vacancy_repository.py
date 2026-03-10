@@ -28,6 +28,9 @@ class SentVacancyRepository:
         missing_skills_json: list[str] | None = None,
         employer_check_json: dict | None = None,
         cover_letter: str | None = None,
+        llm_prompt_version: str | None = None,
+        llm_model_name: str | None = None,
+        llm_generated_at=None,
         processing_status: ProcessingStatus = ProcessingStatus.QUEUED,
         current_pipeline_step: PipelineStep | None = PipelineStep.CLEANING,
     ) -> SentVacancy:
@@ -42,6 +45,9 @@ class SentVacancyRepository:
                 missing_skills_json=missing_skills_json,
                 employer_check_json=employer_check_json,
                 cover_letter=cover_letter,
+                llm_prompt_version=llm_prompt_version,
+                llm_model_name=llm_model_name,
+                llm_generated_at=llm_generated_at,
                 processing_status=processing_status,
                 current_pipeline_step=current_pipeline_step,
                 queued_at=datetime.now(UTC),
@@ -56,10 +62,19 @@ class SentVacancyRepository:
         sent_vacancy.missing_skills_json = missing_skills_json
         sent_vacancy.employer_check_json = employer_check_json
         sent_vacancy.cover_letter = cover_letter
+        sent_vacancy.llm_prompt_version = llm_prompt_version
+        sent_vacancy.llm_model_name = llm_model_name
+        sent_vacancy.llm_generated_at = llm_generated_at
         sent_vacancy.processing_status = processing_status
         sent_vacancy.current_pipeline_step = current_pipeline_step
         self.session.flush()
         return sent_vacancy
+
+    def has_cached_ai_results(self, *, user_id: int, vacancy_id: int) -> bool:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            return False
+        return bool(sent_vacancy.match_summary and sent_vacancy.cover_letter)
 
     def set_telegram_message_id(
         self,

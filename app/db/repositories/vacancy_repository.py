@@ -40,3 +40,18 @@ class VacancyRepository:
             setattr(vacancy, key, value)
         self.session.flush()
         return vacancy
+
+    def get_cached_summary(
+        self,
+        *,
+        provider: str,
+        hh_vacancy_id: str,
+        description_clean: str,
+    ) -> Vacancy | None:
+        stmt = select(Vacancy).where(
+            Vacancy.provider == provider,
+            Vacancy.hh_vacancy_id == hh_vacancy_id,
+            Vacancy.description_clean == description_clean,
+            Vacancy.description_ai_summary.is_not(None),
+        )
+        return self.session.scalar(stmt)
