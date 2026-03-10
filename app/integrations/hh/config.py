@@ -18,6 +18,13 @@ PROVIDERS: dict[str, HHProviderConfig] = {
         site_base_url="https://hh.kz",
         default_area_id=40,
     ),
+    "RU": HHProviderConfig(
+        country_code="RU",
+        provider="hh_ru",
+        api_base_url="https://api.hh.ru",
+        site_base_url="https://hh.ru",
+        default_area_id=113,
+    ),
 }
 
 
