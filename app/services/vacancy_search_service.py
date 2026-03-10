@@ -9,11 +9,13 @@ from app.db.session import session_scope
 from app.integrations.hh.aggregator import deduplicate_vacancies, merge_vacancy_results
 from app.integrations.hh.client import HHClient
 from app.integrations.hh.mapper import map_hh_vacancy
+from app.services.vacancy_content_service import VacancyContentService
 
 
 class VacancySearchService:
     def __init__(self) -> None:
         self.hh_client = HHClient()
+        self.vacancy_content_service = VacancyContentService()
 
     def search_for_user(self, *, telegram_user: TelegramUser) -> list[dict[str, Any]]:
         with session_scope() as session:
@@ -34,9 +36,11 @@ class VacancySearchService:
                     self._build_filters(search_settings),
                 )
                 normalized = [
-                    map_hh_vacancy(
-                        self.hh_client.get_vacancy(country, str(vacancy["id"])),
-                        self.hh_client.get_provider_config(country),
+                    self.vacancy_content_service.enrich(
+                        map_hh_vacancy(
+                            self.hh_client.get_vacancy(country, str(vacancy["id"])),
+                            self.hh_client.get_provider_config(country),
+                        )
                     )
                     for vacancy in raw_vacancies
                 ]
@@ -50,7 +54,9 @@ class VacancySearchService:
 
     def get_vacancy_details(self, *, provider: str, vacancy_id: str) -> dict[str, Any]:
         config = self.hh_client.get_provider_config(provider)
-        return map_hh_vacancy(self.hh_client.get_vacancy(provider, vacancy_id), config)
+        return self.vacancy_content_service.enrich(
+            map_hh_vacancy(self.hh_client.get_vacancy(provider, vacancy_id), config)
+        )
 
     def get_employer_details(self, *, provider: str, employer_id: str) -> dict[str, Any]:
         return self.hh_client.get_employer(provider, employer_id)

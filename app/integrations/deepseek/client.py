@@ -10,6 +10,7 @@ from app.integrations.deepseek.prompts import (
     RESUME_PROFILE_SYSTEM_PROMPT,
     VACANCY_ANALYSIS_SYSTEM_PROMPT,
     VACANCY_QA_SYSTEM_PROMPT,
+    VACANCY_SUMMARY_SYSTEM_PROMPT,
 )
 from app.integrations.deepseek.schemas import ResumeProfileSchema
 
@@ -60,6 +61,31 @@ class DeepSeekClient:
             "user_profile": user_profile,
             "vacancy": vacancy,
         }
+
+    def summarize_vacancy_description(self, description_clean: str) -> str:
+        if not description_clean:
+            return ""
+        if not self.settings.deepseek_api_key or not self.settings.deepseek_base_url:
+            return description_clean
+
+        payload = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {"role": "system", "content": VACANCY_SUMMARY_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        "Сожми описание вакансии до полезной сути для кандидата.\n\n"
+                        f"{description_clean}"
+                    ),
+                },
+            ],
+            "temperature": 0.1,
+        }
+        try:
+            return self._chat_completion(payload).strip() or description_clean
+        except httpx.HTTPError:
+            return description_clean
 
     def generate_cover_letter(
         self,
