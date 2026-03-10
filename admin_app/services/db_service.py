@@ -1,8 +1,9 @@
 from collections.abc import Sequence
 from datetime import UTC, date, datetime, time, timedelta
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 
+from app.db.models.resume import Resume
 from app.db.models.sent_vacancy import ProcessingStatus, SentVacancy
 from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
@@ -14,22 +15,90 @@ class AdminDBService:
     def get_users(self, *, filters: dict | None = None, limit: int = 50) -> list[dict]:
         filters = filters or {}
         with session_scope() as session:
-            stmt = select(User).order_by(User.created_at.desc()).limit(limit)
+            resume_exists = (
+                select(func.count(Resume.id) > 0)
+                .where(Resume.user_id == User.id)
+                .correlate(User)
+                .scalar_subquery()
+            )
+            settings_exists = (
+                select(func.count(SearchSetting.id) > 0)
+                .where(SearchSetting.user_id == User.id, SearchSetting.is_enabled.is_(True))
+                .correlate(User)
+                .scalar_subquery()
+            )
+            sent_count = (
+                select(func.count(SentVacancy.id))
+                .where(
+                    SentVacancy.user_id == User.id,
+                    SentVacancy.processing_status == ProcessingStatus.SENT,
+                )
+                .correlate(User)
+                .scalar_subquery()
+            )
+            failed_count = (
+                select(func.count(SentVacancy.id))
+                .where(
+                    SentVacancy.user_id == User.id,
+                    SentVacancy.processing_status == ProcessingStatus.FAILED,
+                )
+                .correlate(User)
+                .scalar_subquery()
+            )
+            country_stmt = (
+                select(SearchSetting.selected_countries_json)
+                .where(SearchSetting.user_id == User.id)
+                .order_by(
+                    case((SearchSetting.is_enabled.is_(True), 0), else_=1),
+                    SearchSetting.updated_at.desc(),
+                    SearchSetting.id.desc(),
+                )
+                .limit(1)
+                .correlate(User)
+                .scalar_subquery()
+            )
+
+            stmt = (
+                select(
+                    User,
+                    resume_exists.label("has_resume"),
+                    settings_exists.label("has_search_settings"),
+                    sent_count.label("sent_count"),
+                    failed_count.label("failed_count"),
+                    country_stmt.label("selected_countries"),
+                )
+                .order_by(User.created_at.desc())
+                .limit(limit)
+            )
+            if filters.get("telegram_user_id") is not None:
+                stmt = stmt.where(User.telegram_user_id == filters["telegram_user_id"])
             if filters.get("username"):
                 stmt = stmt.where(User.username.ilike(f"%{filters['username']}%"))
             if filters.get("bot_status"):
                 stmt = stmt.where(User.bot_status == BotStatus(filters["bot_status"]))
-            users = list(session.scalars(stmt))
-        return [
-            {
-                "id": user.id,
-                "telegram_user_id": user.telegram_user_id,
-                "username": user.username,
-                "bot_status": user.bot_status.value,
-                "created_at": user.created_at.isoformat(),
-            }
-            for user in users
-        ]
+            rows = list(session.execute(stmt))
+
+        users = []
+        for user, has_resume, has_search_settings, sent_count, failed_count, selected_countries in rows:
+            countries = ", ".join(selected_countries or []) if selected_countries else "none"
+            if filters.get("country") and filters["country"] not in (selected_countries or []):
+                continue
+            users.append(
+                {
+                    "id": user.id,
+                    "telegram_user_id": user.telegram_user_id,
+                    "username": user.username,
+                    "bot_status": user.bot_status.value,
+                    "countries": countries,
+                    "has_resume": bool(has_resume),
+                    "has_search_settings": bool(has_search_settings),
+                    "sent_count": int(sent_count or 0),
+                    "failed_count": int(failed_count or 0),
+                    "created_at": user.created_at.isoformat(),
+                }
+            )
+
+        return users[:limit]
 
     def count_users(self) -> int:
         with session_scope() as session:
