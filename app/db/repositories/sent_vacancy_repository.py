@@ -1,7 +1,9 @@
+from datetime import UTC, datetime
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.db.models.sent_vacancy import SentVacancy
+from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus, SentVacancy
 
 
 class SentVacancyRepository:
@@ -26,6 +28,8 @@ class SentVacancyRepository:
         missing_skills_json: list[str] | None = None,
         employer_check_json: dict | None = None,
         cover_letter: str | None = None,
+        processing_status: ProcessingStatus = ProcessingStatus.QUEUED,
+        current_pipeline_step: PipelineStep | None = PipelineStep.CLEANING,
     ) -> SentVacancy:
         sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
         if sent_vacancy is None:
@@ -38,6 +42,9 @@ class SentVacancyRepository:
                 missing_skills_json=missing_skills_json,
                 employer_check_json=employer_check_json,
                 cover_letter=cover_letter,
+                processing_status=processing_status,
+                current_pipeline_step=current_pipeline_step,
+                queued_at=datetime.now(UTC),
             )
             self.session.add(sent_vacancy)
             self.session.flush()
@@ -49,6 +56,8 @@ class SentVacancyRepository:
         sent_vacancy.missing_skills_json = missing_skills_json
         sent_vacancy.employer_check_json = employer_check_json
         sent_vacancy.cover_letter = cover_letter
+        sent_vacancy.processing_status = processing_status
+        sent_vacancy.current_pipeline_step = current_pipeline_step
         self.session.flush()
         return sent_vacancy
 
@@ -63,5 +72,45 @@ class SentVacancyRepository:
         if sent_vacancy is None:
             return None
         sent_vacancy.telegram_message_id = telegram_message_id
+        sent_vacancy.processing_status = ProcessingStatus.SENT
+        sent_vacancy.sent_at = datetime.now(UTC)
+        self.session.flush()
+        return sent_vacancy
+
+    def mark_processing(
+        self,
+        *,
+        user_id: int,
+        vacancy_id: int,
+        step: PipelineStep,
+    ) -> SentVacancy | None:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            return None
+        sent_vacancy.processing_status = ProcessingStatus.PROCESSING
+        sent_vacancy.current_pipeline_step = step
+        if sent_vacancy.processing_started_at is None:
+            sent_vacancy.processing_started_at = datetime.now(UTC)
+        self.session.flush()
+        return sent_vacancy
+
+    def mark_ready_to_send(self, *, user_id: int, vacancy_id: int) -> SentVacancy | None:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            return None
+        sent_vacancy.processing_status = ProcessingStatus.READY_TO_SEND
+        sent_vacancy.current_pipeline_step = PipelineStep.READY_TO_SEND
+        sent_vacancy.ready_to_send_at = datetime.now(UTC)
+        self.session.flush()
+        return sent_vacancy
+
+    def mark_failed(self, *, user_id: int, vacancy_id: int, error_text: str) -> SentVacancy | None:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            return None
+        sent_vacancy.processing_status = ProcessingStatus.FAILED
+        sent_vacancy.last_error_text = error_text
+        sent_vacancy.retry_count += 1
+        sent_vacancy.failed_at = datetime.now(UTC)
         self.session.flush()
         return sent_vacancy
