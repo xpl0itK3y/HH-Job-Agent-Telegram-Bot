@@ -44,6 +44,10 @@ class Settings(BaseSettings):
     vacancy_send_delay_seconds: int = Field(default=120)
     reminder_after_hours: int = Field(default=24)
 
+    streamlit_admin_username: str = Field(default="")
+    streamlit_admin_password_hash: str = Field(default="")
+    streamlit_secret_key: str = Field(default="")
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

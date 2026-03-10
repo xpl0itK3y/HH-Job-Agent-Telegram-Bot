@@ -1,5 +1,6 @@
 import streamlit as st
 
+from admin_app.components.auth import require_authentication
 from admin_app.components.layout import apply_app_chrome, render_sidebar
 from admin_app.pages import PAGE_REGISTRY
 
@@ -12,8 +13,15 @@ st.set_page_config(
 )
 
 apply_app_chrome()
+auth_state = require_authentication()
 
 page_key = render_sidebar(PAGE_REGISTRY)
 page = PAGE_REGISTRY[page_key]
+
+with st.sidebar:
+    st.caption(f"Signed in as {auth_state['username']} ({auth_state['role']})")
+    if st.button("Log Out", use_container_width=True):
+        st.session_state["admin_auth"] = {}
+        st.rerun()
 
 page.render()
