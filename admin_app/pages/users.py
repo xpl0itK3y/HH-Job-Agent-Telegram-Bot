@@ -43,3 +43,22 @@ class UsersPage:
         rows = self.db.get_users(filters=filters, limit=50)
         st.caption(f"Found {len(rows)} users")
         dataframe_section("Users", rows)
+
+        if rows:
+            selected_user_id = st.selectbox(
+                "Open user profile",
+                options=[row["id"] for row in rows],
+                format_func=lambda user_id: next(
+                    (
+                        f"#{row['id']} @{row['username']}"
+                        if row["username"]
+                        else f"#{row['id']} telegram:{row['telegram_user_id']}"
+                    )
+                    for row in rows
+                    if row["id"] == user_id
+                ),
+            )
+            if st.button("Open User Detail", use_container_width=True):
+                st.session_state["admin_selected_user_id"] = selected_user_id
+                st.session_state["admin_page"] = "user_detail"
+                st.rerun()

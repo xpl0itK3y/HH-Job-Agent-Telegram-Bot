@@ -4,6 +4,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from sqlalchemy import and_, case, func, select
 
 from app.db.models.resume import Resume
+from app.db.models.chat_message import ChatMessage
 from app.db.models.sent_vacancy import ProcessingStatus, SentVacancy
 from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
@@ -242,3 +243,99 @@ class AdminDBService:
             }
             for row in rows
         ]
+
+    def get_user_detail(self, user_id: int) -> dict | None:
+        with session_scope() as session:
+            user = session.get(User, user_id)
+            if user is None:
+                return None
+
+            resume = session.scalar(
+                select(Resume).where(Resume.user_id == user_id).order_by(Resume.updated_at.desc(), Resume.id.desc()).limit(1)
+            )
+            search_setting = session.scalar(
+                select(SearchSetting)
+                .where(SearchSetting.user_id == user_id)
+                .order_by(
+                    case((SearchSetting.is_enabled.is_(True), 0), else_=1),
+                    SearchSetting.updated_at.desc(),
+                    SearchSetting.id.desc(),
+                )
+                .limit(1)
+            )
+            sent_rows = list(
+                session.scalars(
+                    select(SentVacancy)
+                    .where(SentVacancy.user_id == user_id)
+                    .order_by(SentVacancy.id.desc())
+                    .limit(10)
+                )
+            )
+            chat_rows = list(
+                session.scalars(
+                    select(ChatMessage)
+                    .where(ChatMessage.user_id == user_id)
+                    .order_by(ChatMessage.id.desc())
+                    .limit(10)
+                )
+            )
+
+        return {
+            "user": {
+                "id": user.id,
+                "telegram_user_id": user.telegram_user_id,
+                "username": user.username,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "language_code": user.language_code,
+                "is_active": user.is_active,
+                "bot_status": user.bot_status.value,
+                "created_at": user.created_at.isoformat(),
+                "updated_at": user.updated_at.isoformat(),
+            },
+            "resume": None
+            if resume is None
+            else {
+                "source_type": resume.source_type.value,
+                "summary": resume.summary,
+                "raw_text": resume.raw_text,
+                "resume_link": resume.resume_link,
+                "parsed_profile_json": resume.parsed_profile_json,
+                "updated_at": resume.updated_at.isoformat(),
+            },
+            "search_setting": None
+            if search_setting is None
+            else {
+                "keywords": search_setting.keywords,
+                "selected_countries_json": search_setting.selected_countries_json,
+                "area_ids_json": search_setting.area_ids_json,
+                "employment_type": search_setting.employment_type,
+                "work_format": search_setting.work_format,
+                "professional_role": search_setting.professional_role,
+                "search_extra_json": search_setting.search_extra_json,
+                "is_enabled": search_setting.is_enabled,
+                "updated_at": search_setting.updated_at.isoformat(),
+            },
+            "sent_vacancies": [
+                {
+                    "vacancy_id": row.vacancy_id,
+                    "tag": row.vacancy_tag,
+                    "message_id": row.telegram_message_id,
+                    "status": row.processing_status.value,
+                    "score": row.match_score,
+                    "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                    "sent_at": row.sent_at.isoformat() if row.sent_at else None,
+                    "error": row.last_error_text,
+                }
+                for row in sent_rows
+            ],
+            "chat_messages": [
+                {
+                    "vacancy_id": row.vacancy_id,
+                    "role": row.role.value,
+                    "message_text": row.message_text,
+                    "created_at": row.created_at.isoformat(),
+                }
+                for row in chat_rows
+            ],
+        }

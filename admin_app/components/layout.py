@@ -65,12 +65,17 @@ def render_sidebar(page_registry: Mapping[str, object]) -> str:
         st.markdown("### HH Job Agent")
         st.caption("Internal admin workspace")
         labels = {key: page.title for key, page in page_registry.items()}
+        current_page = st.session_state.get("admin_page", list(page_registry.keys())[0])
+        if current_page not in page_registry:
+            current_page = list(page_registry.keys())[0]
         choice = st.radio(
             "Sections",
             options=list(page_registry.keys()),
             format_func=lambda key: labels[key],
+            index=list(page_registry.keys()).index(current_page),
             label_visibility="collapsed",
         )
+        st.session_state["admin_page"] = choice
         st.divider()
         st.caption("Streamlit internal panel")
     return choice
