@@ -6,6 +6,7 @@ from app.services.search_setting_service import SearchSettingService
 from app.services.vacancy_ai_service import VacancyAIService
 from app.services.vacancy_card_service import VacancyCardService
 from app.services.vacancy_content_service import VacancyContentService
+from app.services.vacancy_delivery_service import VacancyDeliveryService
 from app.services.vacancy_search_service import VacancySearchService
 
 __all__ = [
@@ -16,5 +17,6 @@ __all__ = [
     "VacancyAIService",
     "VacancyCardService",
     "VacancyContentService",
+    "VacancyDeliveryService",
     "VacancySearchService",
 ]

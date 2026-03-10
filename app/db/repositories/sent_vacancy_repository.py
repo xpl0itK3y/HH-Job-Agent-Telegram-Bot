@@ -51,3 +51,17 @@ class SentVacancyRepository:
         sent_vacancy.cover_letter = cover_letter
         self.session.flush()
         return sent_vacancy
+
+    def set_telegram_message_id(
+        self,
+        *,
+        user_id: int,
+        vacancy_id: int,
+        telegram_message_id: str,
+    ) -> SentVacancy | None:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            return None
+        sent_vacancy.telegram_message_id = telegram_message_id
+        self.session.flush()
+        return sent_vacancy

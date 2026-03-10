@@ -81,7 +81,7 @@ class VacancyAIService:
                     sent_vacancy.vacancy_tag = generated_tag
                     session.flush()
 
-            card_path = self.vacancy_card_service.render_png(
+            card_path = self.vacancy_card_service.render_gif(
                 vacancy={
                     **vacancy_payload,
                     "id": vacancy.id,
@@ -97,11 +97,15 @@ class VacancyAIService:
 
             return {
                 "sent_vacancy_id": sent_vacancy.id,
+                "vacancy_id": vacancy.id,
                 "vacancy_tag": sent_vacancy.vacancy_tag,
+                "title": vacancy.title,
+                "company_name": vacancy.company_name,
                 "match_score": sent_vacancy.match_score,
                 "match_summary": sent_vacancy.match_summary,
                 "missing_skills_json": sent_vacancy.missing_skills_json,
                 "employer_check_json": sent_vacancy.employer_check_json,
                 "cover_letter": sent_vacancy.cover_letter,
                 "card_path": str(card_path),
+                "alternate_url": vacancy.alternate_url,
             }
