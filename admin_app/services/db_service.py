@@ -244,6 +244,99 @@ class AdminDBService:
             for row in rows
         ]
 
+    def get_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = select(Vacancy).order_by(Vacancy.fetched_at.desc().nullslast(), Vacancy.id.desc()).limit(limit)
+            if filters.get("provider"):
+                stmt = stmt.where(Vacancy.provider == filters["provider"])
+            if filters.get("country"):
+                stmt = stmt.where(Vacancy.source_country_code == filters["country"])
+            if filters.get("company_name"):
+                stmt = stmt.where(Vacancy.company_name.ilike(f"%{filters['company_name']}%"))
+            if filters.get("title"):
+                stmt = stmt.where(Vacancy.title.ilike(f"%{filters['title']}%"))
+            if filters.get("has_ai_summary") is True:
+                stmt = stmt.where(Vacancy.description_ai_summary.is_not(None))
+            elif filters.get("has_ai_summary") is False:
+                stmt = stmt.where(Vacancy.description_ai_summary.is_(None))
+            rows = list(session.scalars(stmt))
+
+        return [
+            {
+                "id": row.id,
+                "provider": row.provider,
+                "hh_vacancy_id": row.hh_vacancy_id,
+                "source_country_code": row.source_country_code,
+                "title": row.title,
+                "company_name": row.company_name,
+                "salary": self._format_salary(row.salary_from, row.salary_to, row.salary_currency),
+                "published_at": row.published_at.isoformat() if row.published_at else None,
+                "fetched_at": row.fetched_at.isoformat() if row.fetched_at else None,
+                "has_ai_summary": bool(row.description_ai_summary),
+                "description_raw": row.description_raw,
+                "description_clean": row.description_clean,
+                "description_ai_summary": row.description_ai_summary,
+                "key_skills_json": row.key_skills_json,
+                "alternate_url": row.alternate_url,
+                "employment_type": row.employment_type,
+                "work_format": row.work_format,
+                "experience": row.experience,
+                "area_name": row.area_name,
+            }
+            for row in rows
+        ]
+
+    def get_sent_vacancies(self, *, filters: dict | None = None, limit: int = 100) -> list[dict]:
+        filters = filters or {}
+        with session_scope() as session:
+            stmt = (
+                select(SentVacancy, Vacancy)
+                .join(Vacancy, Vacancy.id == SentVacancy.vacancy_id)
+                .order_by(SentVacancy.id.desc())
+                .limit(limit)
+            )
+            if filters.get("user_id") is not None:
+                stmt = stmt.where(SentVacancy.user_id == filters["user_id"])
+            if filters.get("status"):
+                stmt = stmt.where(SentVacancy.processing_status == ProcessingStatus(filters["status"]))
+            if filters.get("vacancy_tag"):
+                stmt = stmt.where(SentVacancy.vacancy_tag.ilike(f"%{filters['vacancy_tag']}%"))
+            if filters.get("provider"):
+                stmt = stmt.where(Vacancy.provider == filters["provider"])
+            if filters.get("has_cover_letter") is True:
+                stmt = stmt.where(SentVacancy.cover_letter.is_not(None))
+            elif filters.get("has_cover_letter") is False:
+                stmt = stmt.where(SentVacancy.cover_letter.is_(None))
+            rows = list(session.execute(stmt))
+
+        return [
+            {
+                "id": sent.id,
+                "user_id": sent.user_id,
+                "vacancy_id": sent.vacancy_id,
+                "vacancy_tag": sent.vacancy_tag,
+                "provider": vacancy.provider,
+                "title": vacancy.title,
+                "company_name": vacancy.company_name,
+                "processing_status": sent.processing_status.value,
+                "match_score": sent.match_score,
+                "match_summary": sent.match_summary,
+                "missing_skills_json": sent.missing_skills_json,
+                "employer_check_json": sent.employer_check_json,
+                "cover_letter": sent.cover_letter,
+                "telegram_message_id": sent.telegram_message_id,
+                "sent_at": sent.sent_at.isoformat() if sent.sent_at else None,
+                "current_pipeline_step": sent.current_pipeline_step.value if sent.current_pipeline_step else None,
+                "retry_count": sent.retry_count,
+                "last_error_text": sent.last_error_text,
+                "description_ai_summary": vacancy.description_ai_summary,
+                "description_clean": vacancy.description_clean,
+                "alternate_url": vacancy.alternate_url,
+            }
+            for sent, vacancy in rows
+        ]
+
     def get_user_detail(self, user_id: int) -> dict | None:
         with session_scope() as session:
             user = session.get(User, user_id)
@@ -387,3 +480,13 @@ class AdminDBService:
                 if row.last_error_text or row.processing_status == ProcessingStatus.FAILED
             ],
         }
+
+    @staticmethod
+    def _format_salary(salary_from: int | None, salary_to: int | None, salary_currency: str | None) -> str:
+        if salary_from is None and salary_to is None:
+            return ""
+        if salary_from is not None and salary_to is not None:
+            amount = f"{salary_from} - {salary_to}"
+        else:
+            amount = str(salary_from if salary_from is not None else salary_to)
+        return f"{amount} {salary_currency or ''}".strip()
