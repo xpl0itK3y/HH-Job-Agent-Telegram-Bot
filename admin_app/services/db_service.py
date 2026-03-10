@@ -268,7 +268,7 @@ class AdminDBService:
                     select(SentVacancy)
                     .where(SentVacancy.user_id == user_id)
                     .order_by(SentVacancy.id.desc())
-                    .limit(10)
+                    .limit(25)
                 )
             )
             chat_rows = list(
@@ -276,9 +276,15 @@ class AdminDBService:
                     select(ChatMessage)
                     .where(ChatMessage.user_id == user_id)
                     .order_by(ChatMessage.id.desc())
-                    .limit(10)
+                    .limit(50)
                 )
             )
+            vacancy_ids = sorted({row.vacancy_id for row in sent_rows} | {row.vacancy_id for row in chat_rows})
+            vacancies = {
+                vacancy.id: vacancy
+                for vacancy in session.scalars(select(Vacancy).where(Vacancy.id.in_(vacancy_ids)))
+            }
+            sent_by_vacancy_id = {row.vacancy_id: row for row in sent_rows}
 
         return {
             "user": {
@@ -297,10 +303,14 @@ class AdminDBService:
             if resume is None
             else {
                 "source_type": resume.source_type.value,
+                "file_path": resume.file_path,
                 "summary": resume.summary,
                 "raw_text": resume.raw_text,
                 "resume_link": resume.resume_link,
                 "parsed_profile_json": resume.parsed_profile_json,
+                "llm_model_name": resume.llm_model_name,
+                "llm_prompt_version": resume.llm_prompt_version,
+                "llm_generated_at": resume.llm_generated_at.isoformat() if resume.llm_generated_at else None,
                 "updated_at": resume.updated_at.isoformat(),
             },
             "search_setting": None
@@ -318,24 +328,62 @@ class AdminDBService:
             },
             "sent_vacancies": [
                 {
+                    "id": row.id,
                     "vacancy_id": row.vacancy_id,
                     "tag": row.vacancy_tag,
+                    "title": vacancies.get(row.vacancy_id).title if vacancies.get(row.vacancy_id) else None,
+                    "company_name": vacancies.get(row.vacancy_id).company_name if vacancies.get(row.vacancy_id) else None,
+                    "provider": vacancies.get(row.vacancy_id).provider if vacancies.get(row.vacancy_id) else None,
+                    "source_country_code": (
+                        vacancies.get(row.vacancy_id).source_country_code if vacancies.get(row.vacancy_id) else None
+                    ),
                     "message_id": row.telegram_message_id,
                     "status": row.processing_status.value,
                     "score": row.match_score,
                     "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                    "match_summary": row.match_summary,
+                    "missing_skills_json": row.missing_skills_json,
+                    "employer_check_json": row.employer_check_json,
+                    "cover_letter": row.cover_letter,
                     "sent_at": row.sent_at.isoformat() if row.sent_at else None,
                     "error": row.last_error_text,
+                    "description_raw": vacancies.get(row.vacancy_id).description_raw if vacancies.get(row.vacancy_id) else None,
+                    "description_clean": (
+                        vacancies.get(row.vacancy_id).description_clean if vacancies.get(row.vacancy_id) else None
+                    ),
+                    "description_ai_summary": (
+                        vacancies.get(row.vacancy_id).description_ai_summary if vacancies.get(row.vacancy_id) else None
+                    ),
+                    "alternate_url": vacancies.get(row.vacancy_id).alternate_url if vacancies.get(row.vacancy_id) else None,
+                    "key_skills_json": vacancies.get(row.vacancy_id).key_skills_json if vacancies.get(row.vacancy_id) else None,
                 }
                 for row in sent_rows
             ],
             "chat_messages": [
                 {
                     "vacancy_id": row.vacancy_id,
+                    "vacancy_tag": (
+                        sent_by_vacancy_id[row.vacancy_id].vacancy_tag if row.vacancy_id in sent_by_vacancy_id else None
+                    ),
+                    "vacancy_title": vacancies.get(row.vacancy_id).title if vacancies.get(row.vacancy_id) else None,
                     "role": row.role.value,
                     "message_text": row.message_text,
                     "created_at": row.created_at.isoformat(),
                 }
                 for row in chat_rows
+            ],
+            "recent_errors": [
+                {
+                    "sent_vacancy_id": row.id,
+                    "vacancy_id": row.vacancy_id,
+                    "vacancy_tag": row.vacancy_tag,
+                    "title": vacancies.get(row.vacancy_id).title if vacancies.get(row.vacancy_id) else None,
+                    "step": row.current_pipeline_step.value if row.current_pipeline_step else None,
+                    "retry_count": row.retry_count,
+                    "failed_at": row.failed_at.isoformat() if row.failed_at else None,
+                    "error": row.last_error_text,
+                }
+                for row in sent_rows
+                if row.last_error_text or row.processing_status == ProcessingStatus.FAILED
             ],
         }
