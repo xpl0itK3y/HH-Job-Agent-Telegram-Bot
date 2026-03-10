@@ -156,13 +156,30 @@ class DeepSeekClient:
         chat_history: list[dict[str, Any]],
         question: str,
     ) -> dict[str, Any]:
-        return {
-            "prompt": VACANCY_QA_SYSTEM_PROMPT,
-            "user_profile": user_profile,
-            "vacancy": vacancy,
-            "chat_history": chat_history,
-            "question": question,
+        if not self.settings.deepseek_api_key or not self.settings.deepseek_base_url:
+            return {"answer": "Ответ по вакансии недоступен: не настроен DeepSeek."}
+
+        trimmed_history = chat_history[-10:]
+        payload = {
+            "model": self.settings.deepseek_model,
+            "messages": [
+                {"role": "system", "content": VACANCY_QA_SYSTEM_PROMPT},
+                {
+                    "role": "user",
+                    "content": (
+                        f"User profile:\n{json.dumps(user_profile, ensure_ascii=False)}\n\n"
+                        f"Vacancy:\n{json.dumps(vacancy, ensure_ascii=False)}\n\n"
+                        f"Chat history:\n{json.dumps(trimmed_history, ensure_ascii=False)}\n\n"
+                        f"Question:\n{question}"
+                    ),
+                },
+            ],
+            "temperature": 0.2,
         }
+        try:
+            return {"answer": self._chat_completion(payload).strip()}
+        except httpx.HTTPError:
+            return {"answer": "Не удалось получить ответ по вакансии."}
 
     def _chat_completion(self, payload: dict[str, Any]) -> str:
         headers = {

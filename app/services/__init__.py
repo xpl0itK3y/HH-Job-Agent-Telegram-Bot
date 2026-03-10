@@ -6,6 +6,7 @@ from app.services.search_setting_service import SearchSettingService
 from app.services.user_control_service import UserControlService
 from app.services.vacancy_ai_service import VacancyAIService
 from app.services.vacancy_card_service import VacancyCardService
+from app.services.vacancy_chat_service import VacancyChatService
 from app.services.vacancy_content_service import VacancyContentService
 from app.services.vacancy_delivery_service import VacancyDeliveryService
 from app.services.vacancy_pipeline_service import VacancyPipelineService
@@ -19,6 +20,7 @@ __all__ = [
     "UserControlService",
     "VacancyAIService",
     "VacancyCardService",
+    "VacancyChatService",
     "VacancyContentService",
     "VacancyDeliveryService",
     "VacancyPipelineService",
