@@ -1,5 +1,6 @@
 from aiogram.types import User as TelegramUser
 
+from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus
 from app.db.repositories.resume_repository import ResumeRepository
 from app.db.repositories.sent_vacancy_repository import SentVacancyRepository
 from app.db.repositories.user_repository import UserRepository
@@ -73,6 +74,8 @@ class VacancyAIService:
                 missing_skills_json=analysis.get("missing_skills"),
                 employer_check_json=employer_check,
                 cover_letter=cover_letter_data.get("cover_letter"),
+                processing_status=ProcessingStatus.PROCESSING,
+                current_pipeline_step=PipelineStep.CARD_GENERATION,
             )
 
             if sent_vacancy.id is not None:
