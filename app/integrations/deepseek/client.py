@@ -1,4 +1,5 @@
 import json
+import logging
 from typing import Any
 
 import httpx
@@ -19,6 +20,7 @@ from app.integrations.deepseek.schemas import CoverLetterSchema, VacancyAnalysis
 class DeepSeekClient:
     def __init__(self) -> None:
         self.settings = get_settings()
+        self.logger = logging.getLogger("app.deepseek")
 
     def extract_resume_profile(self, text: str) -> ResumeProfileSchema:
         if not self.settings.deepseek_api_key or not self.settings.deepseek_base_url:
@@ -52,6 +54,7 @@ class DeepSeekClient:
                 parsed.error = None
                 return parsed
             except (httpx.HTTPError, json.JSONDecodeError, ValidationError) as exc:
+                self.logger.exception("DeepSeek resume profile extraction failed")
                 last_error = str(exc)
 
         return ResumeProfileSchema(status="needs_review", error=last_error)
@@ -84,6 +87,7 @@ class DeepSeekClient:
             content = self._chat_completion(payload)
             return VacancyAnalysisSchema.model_validate(json.loads(content)).model_dump()
         except (httpx.HTTPError, json.JSONDecodeError, ValidationError):
+            self.logger.exception("DeepSeek vacancy analysis failed")
             return VacancyAnalysisSchema(
                 match_score=0,
                 match_summary="Не удалось получить AI-анализ вакансии.",
@@ -113,6 +117,7 @@ class DeepSeekClient:
         try:
             return self._chat_completion(payload).strip() or description_clean
         except httpx.HTTPError:
+            self.logger.exception("DeepSeek vacancy summary failed")
             return description_clean
 
     def generate_cover_letter(
@@ -145,6 +150,7 @@ class DeepSeekClient:
             content = self._chat_completion(payload)
             return CoverLetterSchema.model_validate(json.loads(content)).model_dump()
         except (httpx.HTTPError, json.JSONDecodeError, ValidationError):
+            self.logger.exception("DeepSeek cover letter generation failed")
             return CoverLetterSchema(
                 cover_letter="Не удалось сгенерировать сопроводительное письмо."
             ).model_dump()
@@ -179,6 +185,7 @@ class DeepSeekClient:
         try:
             return {"answer": self._chat_completion(payload).strip()}
         except httpx.HTTPError:
+            self.logger.exception("DeepSeek vacancy Q&A failed")
             return {"answer": "Не удалось получить ответ по вакансии."}
 
     def _chat_completion(self, payload: dict[str, Any]) -> str:

@@ -1,3 +1,5 @@
+import logging
+
 from aiogram import Bot
 from aiogram.types import FSInputFile, Message, User as TelegramUser
 
@@ -7,6 +9,9 @@ from app.db.session import session_scope
 
 
 class VacancyDeliveryService:
+    def __init__(self) -> None:
+        self.logger = logging.getLogger("app.telegram")
+
     async def send_to_user(
         self,
         *,
@@ -15,16 +20,20 @@ class VacancyDeliveryService:
         prepared_vacancy: dict,
     ) -> dict:
         animation = FSInputFile(prepared_vacancy["card_path"])
-        await bot.send_animation(
-            chat_id=telegram_user.id,
-            animation=animation,
-            caption=f"{prepared_vacancy['vacancy_tag']} {prepared_vacancy.get('title', '')}".strip(),
-        )
-        message = await bot.send_message(
-            chat_id=telegram_user.id,
-            text=self._build_text(prepared_vacancy),
-            disable_web_page_preview=True,
-        )
+        try:
+            await bot.send_animation(
+                chat_id=telegram_user.id,
+                animation=animation,
+                caption=f"{prepared_vacancy['vacancy_tag']} {prepared_vacancy.get('title', '')}".strip(),
+            )
+            message = await bot.send_message(
+                chat_id=telegram_user.id,
+                text=self._build_text(prepared_vacancy),
+                disable_web_page_preview=True,
+            )
+        except Exception:
+            self.logger.exception("Telegram delivery failed")
+            raise
         self._save_telegram_message_id(
             telegram_user=telegram_user,
             vacancy_id=prepared_vacancy["vacancy_id"],

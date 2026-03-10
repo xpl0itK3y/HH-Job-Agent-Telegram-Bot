@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiogram.types import User as TelegramUser
 
@@ -11,6 +12,8 @@ from app.db.session import session_scope
 from app.integrations.telegram.client import create_telegram_bot
 from app.services.vacancy_pipeline_service import VacancyPipelineService
 from app.tasks.celery_app import celery_app
+
+logger = logging.getLogger("app.celery.analysis")
 
 
 @celery_app.task(
@@ -54,6 +57,7 @@ def analyze_and_send_vacancy(telegram_user_id: int, vacancy_id: int) -> dict:
             pipeline.add_send_delay(settings.vacancy_send_delay_seconds)
             return {"status": "sent", "telegram_user_id": telegram_user_id, "vacancy_id": vacancy_id}
         except Exception as exc:
+            logger.exception("Celery vacancy analysis pipeline failed")
             with session_scope() as session:
                 user = UserRepository(session).get_by_telegram_user_id(telegram_user_id)
                 if user is not None:

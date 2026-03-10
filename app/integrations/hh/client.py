@@ -1,3 +1,4 @@
+import logging
 from typing import Any
 
 import httpx
@@ -8,6 +9,7 @@ from app.integrations.hh.config import HHProviderConfig, PROVIDERS, get_provider
 class HHClient:
     def __init__(self, timeout: float = 20.0) -> None:
         self.timeout = timeout
+        self.logger = logging.getLogger("app.hh")
 
     def search_vacancies(self, provider: str, filters: dict[str, Any]) -> list[dict[str, Any]]:
         config = self.get_provider_config(provider)
@@ -48,13 +50,17 @@ class HHClient:
         params: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         with httpx.Client(timeout=self.timeout) as client:
-            response = client.request(
-                method,
-                f"{config.api_base_url.rstrip('/')}{path}",
-                params=params,
-            )
-            response.raise_for_status()
-            return response.json()
+            try:
+                response = client.request(
+                    method,
+                    f"{config.api_base_url.rstrip('/')}{path}",
+                    params=params,
+                )
+                response.raise_for_status()
+                return response.json()
+            except httpx.HTTPError:
+                self.logger.exception("HH API request failed")
+                raise
 
 
 def _drop_none(values: dict[str, Any]) -> dict[str, Any]:
