@@ -1,0 +1,32 @@
+from enum import StrEnum
+
+from sqlalchemy import Enum, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.db.base import Base
+from app.db.models.mixins import TimestampMixin
+
+
+class ResumeSourceType(StrEnum):
+    PDF = "pdf"
+    TEXT = "text"
+    LINK = "link"
+
+
+class Resume(TimestampMixin, Base):
+    __tablename__ = "resumes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
+    source_type: Mapped[ResumeSourceType] = mapped_column(
+        Enum(ResumeSourceType, name="resume_source_type_enum"),
+        nullable=False,
+    )
+    file_path: Mapped[str | None] = mapped_column(String(1024))
+    resume_link: Mapped[str | None] = mapped_column(String(2048))
+    raw_text: Mapped[str] = mapped_column(Text, nullable=False)
+    parsed_profile_json: Mapped[dict | None] = mapped_column(JSONB)
+    summary: Mapped[str | None] = mapped_column(Text)
+
+    user = relationship("User")
