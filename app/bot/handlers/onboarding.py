@@ -1,5 +1,5 @@
-from aiogram import F, Router
-from aiogram.types import Bot, CallbackQuery, Message
+from aiogram import Bot, F, Router
+from aiogram.types import CallbackQuery, Message
 
 from app.services.resume_service import ResumeService
 
