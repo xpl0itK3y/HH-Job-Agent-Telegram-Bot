@@ -45,6 +45,18 @@ services:
       redis:
         condition: service_healthy
 
+  beat:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    command: celery -A app.tasks.celery_app:celery_app beat --loglevel=info
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   bot:
     <<: *python-service
     build:
