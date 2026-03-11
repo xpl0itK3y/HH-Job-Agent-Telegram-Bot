@@ -17,9 +17,8 @@ def create_celery() -> Celery:
         imports=("app.tasks.analysis", "app.tasks.monitor", "app.tasks.reminders"),
         beat_schedule={
             "monitor-new-vacancies": {
-                "task": "tasks.monitor_new_vacancies",
+                "task": "tasks.monitor_all_users",
                 "schedule": settings.monitor_interval_minutes * 60,
-                "args": (),
             },
         },
     )

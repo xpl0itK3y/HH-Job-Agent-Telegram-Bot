@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.db.models.search_setting import SearchSetting
 from app.db.models.user import BotStatus, User
 
 
@@ -47,3 +48,17 @@ class UserRepository:
         user.bot_status = bot_status
         self.session.flush()
         return user
+
+    def list_monitorable_telegram_user_ids(self) -> list[int]:
+        stmt = (
+            select(User.telegram_user_id)
+            .join(SearchSetting, SearchSetting.user_id == User.id)
+            .where(
+                User.is_active.is_(True),
+                User.bot_status == BotStatus.ACTIVE,
+                SearchSetting.is_enabled.is_(True),
+            )
+            .distinct()
+            .order_by(User.id.asc())
+        )
+        return list(self.session.scalars(stmt))

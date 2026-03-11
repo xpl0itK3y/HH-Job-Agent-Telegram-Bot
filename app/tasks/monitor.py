@@ -8,6 +8,17 @@ from app.tasks.analysis import analyze_and_send_vacancy
 from app.tasks.celery_app import celery_app
 
 
+@celery_app.task(name="tasks.monitor_all_users")
+def monitor_all_users() -> dict:
+    with session_scope() as session:
+        telegram_user_ids = UserRepository(session).list_monitorable_telegram_user_ids()
+
+    for telegram_user_id in telegram_user_ids:
+        monitor_new_vacancies.delay(telegram_user_id)
+
+    return {"status": "queued", "user_count": len(telegram_user_ids)}
+
+
 @celery_app.task(name="tasks.monitor_new_vacancies")
 def monitor_new_vacancies(telegram_user_id: int) -> dict:
     search_service = VacancySearchService()
