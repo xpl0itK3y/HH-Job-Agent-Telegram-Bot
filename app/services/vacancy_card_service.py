@@ -6,8 +6,16 @@ from PIL import Image, ImageDraw, ImageFont
 
 from app.utils.vacancy_tag import build_vacancy_tag
 
-MONO_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf"
-MONO_REG = "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf"
+FONT_PATHS = {
+    "bold": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSansMono-Bold.ttf",
+    ],
+    "regular": [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/dejavu/DejaVuSansMono.ttf",
+    ],
+}
 CARD_STORAGE_DIR = Path("storage/cards")
 W = 1200
 H = 760
@@ -175,8 +183,14 @@ class VacancyCardService:
             ]
         )
 
-    def _fnt(self, size: int, *, bold: bool = False) -> ImageFont.FreeTypeFont:
-        return ImageFont.truetype(MONO_BOLD if bold else MONO_REG, size)
+    def _fnt(self, size: int, *, bold: bool = False) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
+        variant = "bold" if bold else "regular"
+        for font_path in FONT_PATHS[variant]:
+            try:
+                return ImageFont.truetype(font_path, size)
+            except OSError:
+                continue
+        return ImageFont.load_default()
 
     def _lerp_col(self, c1: tuple[int, int, int], c2: tuple[int, int, int], t: float) -> tuple[int, int, int]:
         return tuple(int(c1[i] + (c2[i] - c1[i]) * t) for i in range(3))
