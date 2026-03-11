@@ -40,7 +40,8 @@ class VacancySearchService:
                         map_hh_vacancy(
                             self.hh_client.get_vacancy(country, str(vacancy["id"])),
                             self.hh_client.get_provider_config(country),
-                        )
+                        ),
+                        generate_ai_summary=False,
                     )
                     for vacancy in raw_vacancies
                 ]

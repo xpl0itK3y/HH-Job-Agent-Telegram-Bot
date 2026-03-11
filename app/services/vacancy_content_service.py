@@ -11,32 +11,41 @@ class VacancyContentService:
     def __init__(self) -> None:
         self.deepseek_client = DeepSeekClient()
 
-    def enrich(self, vacancy_data: dict) -> dict:
+    def enrich(self, vacancy_data: dict, *, generate_ai_summary: bool = True) -> dict:
         raw_description = vacancy_data.get("description_raw") or ""
         description_clean = normalize_text(clean_html(raw_description), max_chunk_length=4000)
-        description_ai_summary = ""
-        session = SessionLocal()
-        try:
-            cached = VacancyRepository(session).get_cached_summary(
-                provider=str(vacancy_data["provider"]),
-                hh_vacancy_id=str(vacancy_data["hh_vacancy_id"]),
-                description_clean=description_clean,
-            )
-            if cached is not None and cached.description_ai_summary:
-                description_ai_summary = cached.description_ai_summary
-        finally:
-            session.close()
+        description_ai_summary = None
+        llm_prompt_version = None
+        llm_model_name = None
+        llm_generated_at = None
 
-        if not description_ai_summary:
-            description_ai_summary = self.deepseek_client.summarize_vacancy_description(
-                description_clean
-            )
+        if generate_ai_summary:
+            session = SessionLocal()
+            try:
+                cached = VacancyRepository(session).get_cached_summary(
+                    provider=str(vacancy_data["provider"]),
+                    hh_vacancy_id=str(vacancy_data["hh_vacancy_id"]),
+                    description_clean=description_clean,
+                )
+                if cached is not None and cached.description_ai_summary:
+                    description_ai_summary = cached.description_ai_summary
+            finally:
+                session.close()
+
+            if not description_ai_summary:
+                description_ai_summary = self.deepseek_client.summarize_vacancy_description(
+                    description_clean
+                )
+
+            llm_prompt_version = "vacancy_summary_v1"
+            llm_model_name = self.deepseek_client.settings.deepseek_model
+            llm_generated_at = datetime.now(UTC)
 
         enriched = dict(vacancy_data)
         enriched["description_raw"] = raw_description
         enriched["description_clean"] = description_clean
-        enriched["description_ai_summary"] = description_ai_summary or description_clean
-        enriched["llm_prompt_version"] = "vacancy_summary_v1"
-        enriched["llm_model_name"] = self.deepseek_client.settings.deepseek_model
-        enriched["llm_generated_at"] = datetime.now(UTC)
+        enriched["description_ai_summary"] = description_ai_summary
+        enriched["llm_prompt_version"] = llm_prompt_version
+        enriched["llm_model_name"] = llm_model_name
+        enriched["llm_generated_at"] = llm_generated_at
         return enriched
