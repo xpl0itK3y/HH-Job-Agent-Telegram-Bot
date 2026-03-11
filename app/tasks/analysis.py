@@ -18,17 +18,23 @@ logger = logging.getLogger("app.celery.analysis")
 
 @celery_app.task(
     name="tasks.analyze_and_send_vacancy",
+    bind=True,
     autoretry_for=(Exception,),
     retry_backoff=True,
     max_retries=3,
 )
-def analyze_and_send_vacancy(telegram_user_id: int, vacancy_id: int) -> dict:
+def analyze_and_send_vacancy(self, telegram_user_id: int, vacancy_id: int) -> dict:
     settings = get_settings()
     pipeline = VacancyPipelineService()
 
     with vacancy_send_lock(telegram_user_id) as acquired:
         if not acquired:
-            return {"status": "locked", "telegram_user_id": telegram_user_id, "vacancy_id": vacancy_id}
+            raise self.retry(
+                countdown=max(settings.vacancy_send_delay_seconds, 5),
+                exc=RuntimeError(
+                    f"User {telegram_user_id} is locked for vacancy delivery, retrying vacancy {vacancy_id}"
+                ),
+            )
 
         with session_scope() as session:
             user = UserRepository(session).get_by_telegram_user_id(telegram_user_id)

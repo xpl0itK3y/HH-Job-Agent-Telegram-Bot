@@ -129,3 +129,36 @@ class SentVacancyRepository:
         sent_vacancy.failed_at = datetime.now(UTC)
         self.session.flush()
         return sent_vacancy
+
+    def enqueue(
+        self,
+        *,
+        user_id: int,
+        vacancy_id: int,
+        vacancy_tag: str,
+    ) -> SentVacancy:
+        sent_vacancy = self.get_by_user_and_vacancy(user_id=user_id, vacancy_id=vacancy_id)
+        if sent_vacancy is None:
+            sent_vacancy = SentVacancy(
+                user_id=user_id,
+                vacancy_id=vacancy_id,
+                vacancy_tag=vacancy_tag,
+                processing_status=ProcessingStatus.QUEUED,
+                current_pipeline_step=PipelineStep.CLEANING,
+                queued_at=datetime.now(UTC),
+                retry_count=0,
+            )
+            self.session.add(sent_vacancy)
+            self.session.flush()
+            return sent_vacancy
+
+        if sent_vacancy.processing_status == ProcessingStatus.SENT:
+            return sent_vacancy
+
+        sent_vacancy.vacancy_tag = vacancy_tag
+        sent_vacancy.processing_status = ProcessingStatus.QUEUED
+        sent_vacancy.current_pipeline_step = PipelineStep.CLEANING
+        if sent_vacancy.queued_at is None:
+            sent_vacancy.queued_at = datetime.now(UTC)
+        self.session.flush()
+        return sent_vacancy
