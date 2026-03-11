@@ -1,9 +1,10 @@
 from enum import StrEnum
 
-from sqlalchemy import BigInteger, Boolean, Enum, String
+from sqlalchemy import BigInteger, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.models.enums import values_enum
 from app.db.models.mixins import TimestampMixin
 
 
@@ -23,7 +24,7 @@ class User(TimestampMixin, Base):
     language_code: Mapped[str | None] = mapped_column(String(16))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     bot_status: Mapped[BotStatus] = mapped_column(
-        Enum(BotStatus, name="bot_status_enum"),
+        values_enum(BotStatus, name="bot_status_enum"),
         default=BotStatus.ACTIVE,
         nullable=False,
     )

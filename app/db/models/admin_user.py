@@ -1,9 +1,10 @@
 from enum import StrEnum
 
-from sqlalchemy import Boolean, Enum, String
+from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.db.models.enums import values_enum
 from app.db.models.mixins import TimestampMixin
 
 
@@ -19,7 +20,7 @@ class AdminUser(TimestampMixin, Base):
     username: Mapped[str] = mapped_column(String(255), nullable=False, unique=True)
     password_hash: Mapped[str] = mapped_column(String(512), nullable=False)
     role: Mapped[AdminRole] = mapped_column(
-        Enum(AdminRole, name="admin_role_enum"),
+        values_enum(AdminRole, name="admin_role_enum"),
         nullable=False,
         default=AdminRole.VIEWER,
     )

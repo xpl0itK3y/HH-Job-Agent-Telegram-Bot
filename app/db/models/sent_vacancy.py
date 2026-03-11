@@ -1,11 +1,12 @@
 from enum import StrEnum
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.models.enums import values_enum
 
 
 class ProcessingStatus(StrEnum):
@@ -43,12 +44,12 @@ class SentVacancy(Base):
     llm_model_name: Mapped[str | None] = mapped_column(String(128))
     llm_generated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     processing_status: Mapped[ProcessingStatus] = mapped_column(
-        Enum(ProcessingStatus, name="processing_status_enum"),
+        values_enum(ProcessingStatus, name="processing_status_enum"),
         default=ProcessingStatus.QUEUED,
         nullable=False,
     )
     current_pipeline_step: Mapped[PipelineStep | None] = mapped_column(
-        Enum(PipelineStep, name="pipeline_step_enum"),
+        values_enum(PipelineStep, name="pipeline_step_enum"),
     )
     last_error_text: Mapped[str | None] = mapped_column(Text)
     retry_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)

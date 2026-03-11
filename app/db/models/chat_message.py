@@ -1,9 +1,10 @@
 from enum import StrEnum
 
-from sqlalchemy import Enum, ForeignKey, Text
+from sqlalchemy import ForeignKey, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.models.enums import values_enum
 from app.db.models.mixins import TimestampMixin
 
 
@@ -20,7 +21,7 @@ class ChatMessage(TimestampMixin, Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     vacancy_id: Mapped[int] = mapped_column(ForeignKey("vacancies.id"), nullable=False, index=True)
     role: Mapped[ChatMessageRole] = mapped_column(
-        Enum(ChatMessageRole, name="chat_message_role_enum"),
+        values_enum(ChatMessageRole, name="chat_message_role_enum"),
         nullable=False,
     )
     message_text: Mapped[str] = mapped_column(Text, nullable=False)

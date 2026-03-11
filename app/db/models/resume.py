@@ -2,11 +2,12 @@ from datetime import datetime
 
 from enum import StrEnum
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, Text
+from sqlalchemy import DateTime, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+from app.db.models.enums import values_enum
 from app.db.models.mixins import TimestampMixin
 
 
@@ -22,7 +23,7 @@ class Resume(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False, index=True)
     source_type: Mapped[ResumeSourceType] = mapped_column(
-        Enum(ResumeSourceType, name="resume_source_type_enum"),
+        values_enum(ResumeSourceType, name="resume_source_type_enum"),
         nullable=False,
     )
     file_path: Mapped[str | None] = mapped_column(String(1024))
