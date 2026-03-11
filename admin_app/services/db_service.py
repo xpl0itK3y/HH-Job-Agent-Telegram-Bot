@@ -36,7 +36,7 @@ class AdminDBService:
                 select(func.count(SentVacancy.id))
                 .where(
                     SentVacancy.user_id == User.id,
-                    SentVacancy.processing_status == ProcessingStatus.SENT,
+                    SentVacancy.processing_status == ProcessingStatus.SENT.value,
                 )
                 .correlate(User)
                 .scalar_subquery()
@@ -45,7 +45,7 @@ class AdminDBService:
                 select(func.count(SentVacancy.id))
                 .where(
                     SentVacancy.user_id == User.id,
-                    SentVacancy.processing_status == ProcessingStatus.FAILED,
+                    SentVacancy.processing_status == ProcessingStatus.FAILED.value,
                 )
                 .correlate(User)
                 .scalar_subquery()
@@ -80,7 +80,7 @@ class AdminDBService:
             if filters.get("username"):
                 stmt = stmt.where(User.username.ilike(f"%{filters['username']}%"))
             if filters.get("bot_status"):
-                stmt = stmt.where(User.bot_status == BotStatus(filters["bot_status"]))
+                stmt = stmt.where(User.bot_status == filters["bot_status"])
             rows = list(session.execute(stmt))
 
         users = []
@@ -111,7 +111,7 @@ class AdminDBService:
 
     def count_users_by_status(self, status: BotStatus) -> int:
         with session_scope() as session:
-            stmt = select(func.count()).select_from(User).where(User.bot_status == status)
+            stmt = select(func.count()).select_from(User).where(User.bot_status == status.value)
             return session.scalar(stmt) or 0
 
     def count_vacancies(self) -> int:
@@ -120,7 +120,7 @@ class AdminDBService:
 
     def count_sent_by_status(self, status: ProcessingStatus) -> int:
         with session_scope() as session:
-            stmt = select(func.count()).select_from(SentVacancy).where(SentVacancy.processing_status == status)
+            stmt = select(func.count()).select_from(SentVacancy).where(SentVacancy.processing_status == status.value)
             return session.scalar(stmt) or 0
 
     def count_sent_today(self) -> int:
@@ -131,7 +131,7 @@ class AdminDBService:
                 .select_from(SentVacancy)
                 .where(
                     and_(
-                        SentVacancy.processing_status == ProcessingStatus.SENT,
+                        SentVacancy.processing_status == ProcessingStatus.SENT.value,
                         SentVacancy.sent_at.is_not(None),
                         SentVacancy.sent_at >= start_of_day,
                     )
@@ -229,7 +229,7 @@ class AdminDBService:
         with session_scope() as session:
             stmt = (
                 select(SentVacancy)
-                .where(SentVacancy.processing_status == ProcessingStatus.FAILED)
+                .where(SentVacancy.processing_status == ProcessingStatus.FAILED.value)
                 .order_by(SentVacancy.failed_at.desc().nullslast(), SentVacancy.id.desc())
                 .limit(limit)
             )
@@ -456,7 +456,7 @@ class AdminDBService:
             if filters.get("user_id") is not None:
                 stmt = stmt.where(SentVacancy.user_id == filters["user_id"])
             if filters.get("status"):
-                stmt = stmt.where(SentVacancy.processing_status == ProcessingStatus(filters["status"]))
+                stmt = stmt.where(SentVacancy.processing_status == filters["status"])
             if filters.get("vacancy_tag"):
                 stmt = stmt.where(SentVacancy.vacancy_tag.ilike(f"%{filters['vacancy_tag']}%"))
             if filters.get("provider"):
@@ -502,8 +502,8 @@ class AdminDBService:
                     select(SentVacancy)
                     .order_by(
                         case(
-                            (SentVacancy.processing_status == ProcessingStatus.PROCESSING, 0),
-                            (SentVacancy.processing_status == ProcessingStatus.QUEUED, 1),
+                            (SentVacancy.processing_status == ProcessingStatus.PROCESSING.value, 0),
+                            (SentVacancy.processing_status == ProcessingStatus.QUEUED.value, 1),
                             else_=2,
                         ),
                         SentVacancy.queued_at.asc().nullslast(),
@@ -591,7 +591,7 @@ class AdminDBService:
                     select(SentVacancy)
                     .where(
                         or_(
-                            SentVacancy.processing_status == ProcessingStatus.FAILED,
+                            SentVacancy.processing_status == ProcessingStatus.FAILED.value,
                             SentVacancy.last_error_text.is_not(None),
                         )
                     )
