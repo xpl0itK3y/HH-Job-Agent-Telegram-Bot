@@ -170,5 +170,6 @@ class VacancyAIService:
                 "cover_letter": sent_vacancy.cover_letter,
                 "card_path": str(card_path),
                 "alternate_url": vacancy.alternate_url,
+                "resume_link": resume.resume_link if resume else None,
                 "should_send": True,
             }
