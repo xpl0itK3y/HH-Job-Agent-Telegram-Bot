@@ -1,7 +1,7 @@
 """Add llm metadata fields
 
 Revision ID: 0003_add_llm_metadata_fields
-Revises: 0002_sent_vacancy_processing_fields
+Revises: 0002_sent_vacancy_proc
 Create Date: 2026-03-10 01:00:00
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 
 revision = "0003_add_llm_metadata_fields"
-down_revision = "0002_sent_vacancy_processing_fields"
+down_revision = "0002_sent_vacancy_proc"
 branch_labels = None
 depends_on = None
 
