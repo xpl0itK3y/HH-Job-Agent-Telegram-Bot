@@ -1,7 +1,7 @@
 import logging
 
 from aiogram import Bot
-from aiogram.types import FSInputFile, Message, User as TelegramUser
+from aiogram.types import User as TelegramUser
 
 from app.db.repositories.sent_vacancy_repository import SentVacancyRepository
 from app.db.repositories.user_repository import UserRepository
@@ -19,15 +19,8 @@ class VacancyDeliveryService:
         telegram_user: TelegramUser,
         prepared_vacancy: dict,
     ) -> dict:
-        animation = FSInputFile(prepared_vacancy["card_path"])
-        caption = self._build_caption(prepared_vacancy)
         full_text = self._build_full_text(prepared_vacancy)
         try:
-            media_message = await bot.send_document(
-                chat_id=telegram_user.id,
-                document=animation,
-                caption=caption,
-            )
             message = await bot.send_message(
                 chat_id=telegram_user.id,
                 text=full_text,
@@ -42,22 +35,8 @@ class VacancyDeliveryService:
             telegram_message_id=str(message.message_id),
         )
         return {
-            "animation_sent": True,
             "message_id": message.message_id,
-            "media_message_id": media_message.message_id,
         }
-
-    def _build_caption(self, prepared_vacancy: dict) -> str:
-        summary = self._trim(prepared_vacancy.get("match_summary") or "-", 240)
-        lines = [
-            prepared_vacancy["vacancy_tag"],
-            prepared_vacancy.get("title") or "Untitled vacancy",
-            prepared_vacancy.get("company_name") or "Unknown company",
-            "",
-            f"Match score: {prepared_vacancy.get('match_score')}",
-            summary,
-        ]
-        return self._trim("\n".join(lines), 1024)
 
     def _build_full_text(self, prepared_vacancy: dict) -> str:
         missing_skills = prepared_vacancy.get("missing_skills_json") or []
@@ -89,10 +68,10 @@ class VacancyDeliveryService:
             )
         lines.extend(
             [
-            prepared_vacancy.get("alternate_url") or "-",
+                prepared_vacancy.get("alternate_url") or "-",
             ]
         )
-        return "\n".join(lines)
+        return self._trim("\n".join(lines), 4096)
 
     def _trim(self, text: str, limit: int) -> str:
         if len(text) <= limit:
