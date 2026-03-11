@@ -15,15 +15,16 @@ branch_labels = None
 depends_on = None
 
 
-processing_status_enum = sa.Enum(
+processing_status_enum = sa.dialects.postgresql.ENUM(
     "queued",
     "processing",
     "ready_to_send",
     "sent",
     "failed",
     name="processing_status_enum",
+    create_type=False,
 )
-pipeline_step_enum = sa.Enum(
+pipeline_step_enum = sa.dialects.postgresql.ENUM(
     "cleaning",
     "ai_summary",
     "employer_check",
@@ -32,6 +33,7 @@ pipeline_step_enum = sa.Enum(
     "card_generation",
     "ready_to_send",
     name="pipeline_step_enum",
+    create_type=False,
 )
 
 

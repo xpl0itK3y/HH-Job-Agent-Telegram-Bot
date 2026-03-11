@@ -16,10 +16,12 @@ branch_labels = None
 depends_on = None
 
 
-bot_status_enum = sa.Enum("active", "paused", name="bot_status_enum")
-resume_source_type_enum = sa.Enum("pdf", "text", "link", name="resume_source_type_enum")
-chat_message_role_enum = sa.Enum("user", "assistant", "system", name="chat_message_role_enum")
-admin_role_enum = sa.Enum("admin", "viewer", name="admin_role_enum")
+bot_status_enum = postgresql.ENUM("active", "paused", name="bot_status_enum", create_type=False)
+resume_source_type_enum = postgresql.ENUM("pdf", "text", "link", name="resume_source_type_enum", create_type=False)
+chat_message_role_enum = postgresql.ENUM(
+    "user", "assistant", "system", name="chat_message_role_enum", create_type=False
+)
+admin_role_enum = postgresql.ENUM("admin", "viewer", name="admin_role_enum", create_type=False)
 
 
 def upgrade() -> None:
