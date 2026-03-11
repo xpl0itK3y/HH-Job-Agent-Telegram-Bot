@@ -12,7 +12,16 @@ class EmployerCheckService:
         self.whois_service = WhoisService()
 
     def check_employer(self, *, provider: str, employer_id: str) -> dict:
-        employer = self.hh_client.get_employer(provider, employer_id)
+        try:
+            employer = self.hh_client.get_employer(provider, employer_id)
+        except httpx.HTTPError as exc:
+            return {
+                "score": 0,
+                "status": "Проверка недоступна",
+                "site_url": None,
+                "signals": ["hh_lookup_failed"],
+                "error": str(exc),
+            }
         return self.evaluate_employer(employer)
 
     def evaluate_employer(self, employer: dict) -> dict:
