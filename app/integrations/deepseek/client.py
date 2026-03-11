@@ -74,7 +74,10 @@ class DeepSeekClient:
                 {
                     "role": "user",
                     "content": (
-                        "Верни JSON с полями match_score, match_summary, missing_skills.\n\n"
+                        "Верни JSON с полями match_score, match_summary, missing_skills.\n"
+                        "match_score: целое число 0-100.\n"
+                        "match_summary: 3-5 полных предложений, не одно короткое.\n"
+                        "missing_skills: только конкретные пробелы, без воды.\n\n"
                         f"User profile:\n{json.dumps(user_profile, ensure_ascii=False)}\n\n"
                         f"Vacancy:\n{json.dumps(vacancy, ensure_ascii=False)}"
                     ),
@@ -137,7 +140,10 @@ class DeepSeekClient:
                 {
                     "role": "user",
                     "content": (
-                        "Верни JSON с полем cover_letter.\n\n"
+                        "Верни JSON с полем cover_letter.\n"
+                        "Сделай письмо конкретным под вакансию, без шаблонной воды.\n"
+                        "Обязательно опирайся только на реальные данные кандидата.\n"
+                        "Если в данных есть resume_link, органично упомяни, что резюме доступно по ссылке.\n\n"
                         f"User profile:\n{json.dumps(user_profile, ensure_ascii=False)}\n\n"
                         f"Vacancy:\n{json.dumps(vacancy, ensure_ascii=False)}"
                     ),
