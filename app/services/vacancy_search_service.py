@@ -66,8 +66,8 @@ class VacancySearchService:
         return {
             "text": search_settings.keywords,
             "area": area_ids[0] if area_ids else None,
-            "employment": search_settings.employment_type,
-            "schedule": search_settings.work_format,
+            "employment": self._normalize_employment(search_settings.employment_type),
+            "schedule": self._normalize_schedule(search_settings.work_format),
             "per_page": 20,
             "page": 0,
         }
@@ -82,3 +82,24 @@ class VacancySearchService:
             "alternate_url": vacancy.alternate_url,
             "source_country_code": vacancy.source_country_code,
         }
+
+    def _normalize_employment(self, employment_type: str | None) -> str | None:
+        if not employment_type:
+            return None
+        mapping = {
+            "full-time": "full",
+            "part-time": "part",
+            "project": "project",
+        }
+        return mapping.get(employment_type, employment_type)
+
+    def _normalize_schedule(self, work_format: str | None) -> str | None:
+        if not work_format:
+            return None
+        mapping = {
+            "remote": "remote",
+            # HH schedule filter does not support office/hybrid values from our UI.
+            "office": None,
+            "hybrid": None,
+        }
+        return mapping.get(work_format, work_format)
