@@ -20,16 +20,12 @@ class VacancyDeliveryService:
         prepared_vacancy: dict,
     ) -> dict:
         animation = FSInputFile(prepared_vacancy["card_path"])
+        caption = self._build_caption(prepared_vacancy)
         try:
-            await bot.send_animation(
+            message = await bot.send_animation(
                 chat_id=telegram_user.id,
                 animation=animation,
-                caption=f"{prepared_vacancy['vacancy_tag']} {prepared_vacancy.get('title', '')}".strip(),
-            )
-            message = await bot.send_message(
-                chat_id=telegram_user.id,
-                text=self._build_text(prepared_vacancy),
-                disable_web_page_preview=True,
+                caption=caption,
             )
         except Exception:
             self.logger.exception("Telegram delivery failed")
@@ -44,24 +40,34 @@ class VacancyDeliveryService:
             "message_id": message.message_id,
         }
 
-    def _build_text(self, prepared_vacancy: dict) -> str:
+    def _build_caption(self, prepared_vacancy: dict) -> str:
         missing_skills = prepared_vacancy.get("missing_skills_json") or []
         employer = prepared_vacancy.get("employer_check_json") or {}
+        summary = self._trim(prepared_vacancy.get("match_summary") or "-", 280)
+        cover_letter = self._trim(prepared_vacancy.get("cover_letter") or "-", 220)
+        missing = ", ".join(missing_skills[:5]) if missing_skills else "-"
         lines = [
             prepared_vacancy["vacancy_tag"],
             prepared_vacancy.get("title") or "Untitled vacancy",
             prepared_vacancy.get("company_name") or "Unknown company",
             "",
             f"Match score: {prepared_vacancy.get('match_score')}",
-            f"Match summary: {prepared_vacancy.get('match_summary') or '-'}",
             f"Employer check: {employer.get('status', '-')}",
-            f"Missing skills: {', '.join(missing_skills) if missing_skills else '-'}",
+            f"Missing skills: {missing}",
             "",
-            prepared_vacancy.get("cover_letter") or "-",
+            summary,
+            "",
+            cover_letter,
             "",
             prepared_vacancy.get("alternate_url") or "-",
         ]
-        return "\n".join(lines)
+        caption = "\n".join(lines)
+        return self._trim(caption, 1024)
+
+    def _trim(self, text: str, limit: int) -> str:
+        if len(text) <= limit:
+            return text
+        return text[: max(limit - 1, 0)].rstrip() + "…"
 
     def _save_telegram_message_id(
         self,
