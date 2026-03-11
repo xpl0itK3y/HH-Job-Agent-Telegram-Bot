@@ -22,9 +22,9 @@ class VacancyDeliveryService:
         animation = FSInputFile(prepared_vacancy["card_path"])
         caption = self._build_caption(prepared_vacancy)
         try:
-            message = await bot.send_animation(
+            message = await bot.send_document(
                 chat_id=telegram_user.id,
-                animation=animation,
+                document=animation,
                 caption=caption,
             )
         except Exception:
