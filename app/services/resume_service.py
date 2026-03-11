@@ -10,6 +10,7 @@ from app.db.repositories.resume_repository import ResumeRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import session_scope
 from app.integrations.deepseek.client import DeepSeekClient
+from app.tasks.triggers import trigger_user_monitoring
 from app.utils.pdf import extract_text_from_pdf
 from app.utils.text_normalizer import normalize_text
 
@@ -59,7 +60,9 @@ class ResumeService:
                 llm_model_name=self.deepseek_client.settings.deepseek_model,
                 llm_generated_at=datetime.now(UTC),
             )
-            return ResumeProcessingResult(resume=resume, normalized_text=normalized_text)
+            telegram_user_id = user.telegram_user_id
+        trigger_user_monitoring(telegram_user_id)
+        return ResumeProcessingResult(resume=resume, normalized_text=normalized_text)
 
     def save_resume_link(
         self,
@@ -82,7 +85,7 @@ class ResumeService:
             if cached_resume is not None and cached_resume.parsed_profile_json:
                 return cached_resume
             profile = self.deepseek_client.extract_resume_profile(resume_link)
-            return ResumeRepository(session).create(
+            resume = ResumeRepository(session).create(
                 user_id=user.id,
                 source_type=ResumeSourceType.LINK,
                 raw_text=resume_link,
@@ -93,6 +96,9 @@ class ResumeService:
                 llm_model_name=self.deepseek_client.settings.deepseek_model,
                 llm_generated_at=datetime.now(UTC),
             )
+            telegram_user_id = user.telegram_user_id
+        trigger_user_monitoring(telegram_user_id)
+        return resume
 
     def save_pdf_resume(
         self,
@@ -131,7 +137,9 @@ class ResumeService:
                 llm_model_name=self.deepseek_client.settings.deepseek_model,
                 llm_generated_at=datetime.now(UTC),
             )
-            return ResumeProcessingResult(resume=resume, normalized_text=normalized_text)
+            telegram_user_id = user.telegram_user_id
+        trigger_user_monitoring(telegram_user_id)
+        return ResumeProcessingResult(resume=resume, normalized_text=normalized_text)
 
     def _store_resume_file(self, telegram_user_id: int, filename: str, pdf_bytes: bytes) -> Path:
         RESUME_STORAGE_DIR.mkdir(parents=True, exist_ok=True)

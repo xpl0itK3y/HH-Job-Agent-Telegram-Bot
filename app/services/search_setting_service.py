@@ -4,6 +4,7 @@ from app.db.repositories.search_setting_repository import SearchSettingRepositor
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import session_scope
 from app.integrations.hh.selection import resolve_selected_countries
+from app.tasks.triggers import trigger_user_monitoring
 
 
 class SearchSettingService:
@@ -28,6 +29,8 @@ class SearchSettingService:
 
     def set_enabled(self, *, telegram_user: TelegramUser, is_enabled: bool) -> None:
         self._update_fields(telegram_user=telegram_user, is_enabled=is_enabled)
+        if is_enabled:
+            trigger_user_monitoring(telegram_user.id)
 
     def get_summary(self, *, telegram_user: TelegramUser) -> str:
         with session_scope() as session:
