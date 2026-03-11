@@ -52,6 +52,13 @@ def analyze_and_send_vacancy(self, telegram_user_id: int, vacancy_id: int) -> di
                 telegram_user=telegram_user,
                 vacancy_id=vacancy_id,
             )
+            if not prepared.get("should_send", True):
+                return {
+                    "status": "skipped",
+                    "telegram_user_id": telegram_user_id,
+                    "vacancy_id": vacancy_id,
+                    "reason": prepared.get("skip_reason") or "filtered",
+                }
             bot = create_telegram_bot()
             asyncio.run(
                 pipeline.deliver_prepared_vacancy(

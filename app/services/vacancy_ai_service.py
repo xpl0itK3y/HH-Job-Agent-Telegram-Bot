@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from aiogram.types import User as TelegramUser
 
+from app.core.config import get_settings
 from app.db.models.sent_vacancy import PipelineStep, ProcessingStatus
 from app.db.repositories.resume_repository import ResumeRepository
 from app.db.repositories.sent_vacancy_repository import SentVacancyRepository
@@ -16,6 +17,7 @@ from app.utils.vacancy_tag import build_vacancy_tag
 
 class VacancyAIService:
     def __init__(self) -> None:
+        self.settings = get_settings()
         self.deepseek_client = DeepSeekClient()
         self.employer_check_service = EmployerCheckService()
         self.vacancy_card_service = VacancyCardService()
@@ -50,22 +52,7 @@ class VacancyAIService:
             }
 
             analysis = self.deepseek_client.analyze_vacancy(user_profile, vacancy_payload)
-            employer_check = (
-                self.employer_check_service.check_employer(
-                    provider=vacancy.provider,
-                    employer_id=vacancy.employer_hh_id,
-                )
-                if vacancy.employer_hh_id
-                else {"score": 0, "status": "Есть риски", "signals": []}
-            )
-            cover_letter_data = self.deepseek_client.generate_cover_letter(
-                user_profile,
-                {
-                    **vacancy_payload,
-                    "resume_link": resume.resume_link if resume else None,
-                },
-            )
-
+            match_score = int(analysis.get("match_score") or 0)
             sent_repository = SentVacancyRepository(session)
             cached_sent = sent_repository.get_by_user_and_vacancy(
                 user_id=user.id,
@@ -82,6 +69,57 @@ class VacancyAIService:
                     "match_summary": cached_sent.match_summary,
                     "missing_skills": cached_sent.missing_skills_json,
                 }
+                match_score = int(cached_sent.match_score or 0)
+
+            if match_score < self.settings.vacancy_min_match_score:
+                sent_vacancy = sent_repository.create_or_update(
+                    user_id=user.id,
+                    vacancy_id=vacancy.id,
+                    vacancy_tag=build_vacancy_tag(vacancy_id=vacancy.id),
+                    match_score=match_score,
+                    match_summary=analysis.get("match_summary"),
+                    missing_skills_json=analysis.get("missing_skills"),
+                    processing_status=ProcessingStatus.FAILED,
+                    current_pipeline_step=PipelineStep.MATCH_ANALYSIS,
+                )
+                sent_vacancy.last_error_text = (
+                    f"Filtered by low match score: {match_score} < {self.settings.vacancy_min_match_score}"
+                )
+                sent_vacancy.failed_at = datetime.now(UTC)
+                session.flush()
+                return {
+                    "sent_vacancy_id": sent_vacancy.id,
+                    "vacancy_id": vacancy.id,
+                    "vacancy_tag": sent_vacancy.vacancy_tag,
+                    "title": vacancy.title,
+                    "company_name": vacancy.company_name,
+                    "match_score": match_score,
+                    "match_summary": sent_vacancy.match_summary,
+                    "missing_skills_json": sent_vacancy.missing_skills_json,
+                    "employer_check_json": {},
+                    "cover_letter": "",
+                    "card_path": "",
+                    "alternate_url": vacancy.alternate_url,
+                    "should_send": False,
+                    "skip_reason": sent_vacancy.last_error_text,
+                }
+
+            employer_check = (
+                self.employer_check_service.check_employer(
+                    provider=vacancy.provider,
+                    employer_id=vacancy.employer_hh_id,
+                )
+                if vacancy.employer_hh_id
+                else {"score": 0, "status": "Есть риски", "signals": []}
+            )
+            cover_letter_data = self.deepseek_client.generate_cover_letter(
+                user_profile,
+                {
+                    **vacancy_payload,
+                    "resume_link": resume.resume_link if resume else None,
+                },
+            )
+            if cached_sent is not None and cached_sent.cover_letter:
                 cover_letter_data = {"cover_letter": cached_sent.cover_letter}
             sent_vacancy = sent_repository.create_or_update(
                 user_id=user.id,
@@ -132,4 +170,5 @@ class VacancyAIService:
                 "cover_letter": sent_vacancy.cover_letter,
                 "card_path": str(card_path),
                 "alternate_url": vacancy.alternate_url,
+                "should_send": True,
             }

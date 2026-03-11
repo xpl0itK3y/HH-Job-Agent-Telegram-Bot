@@ -2,6 +2,7 @@ from typing import Any
 
 from aiogram.types import User as TelegramUser
 
+from app.db.repositories.resume_repository import ResumeRepository
 from app.db.repositories.search_setting_repository import SearchSettingRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.repositories.vacancy_repository import VacancyRepository
@@ -27,13 +28,15 @@ class VacancySearchService:
                 language_code=telegram_user.language_code,
             )
             search_settings = SearchSettingRepository(session).get_or_create(user.id)
+            resume = ResumeRepository(session).get_latest_by_user_id(user.id)
+            resume_profile = (resume.parsed_profile_json if resume else None) or {}
             countries = search_settings.selected_countries_json or ["KZ"]
             market_results = []
 
             for country in countries:
                 raw_vacancies = self.hh_client.search_vacancies(
                     country,
-                    self._build_filters(search_settings),
+                    self._build_filters(search_settings, resume_profile),
                 )
                 normalized = [
                     self.vacancy_content_service.enrich(
@@ -62,16 +65,46 @@ class VacancySearchService:
     def get_employer_details(self, *, provider: str, employer_id: str) -> dict[str, Any]:
         return self.hh_client.get_employer(provider, employer_id)
 
-    def _build_filters(self, search_settings: Any) -> dict[str, Any]:
+    def _build_filters(self, search_settings: Any, resume_profile: dict[str, Any]) -> dict[str, Any]:
         area_ids = search_settings.area_ids_json or []
         return {
-            "text": search_settings.keywords,
+            "text": self._build_search_text(search_settings, resume_profile),
             "area": area_ids[0] if area_ids else None,
             "employment": self._normalize_employment(search_settings.employment_type),
             "schedule": self._normalize_schedule(search_settings.work_format),
             "per_page": 20,
             "page": 0,
         }
+
+    def _build_search_text(self, search_settings: Any, resume_profile: dict[str, Any]) -> str | None:
+        if search_settings.keywords:
+            return search_settings.keywords
+
+        parts: list[str] = []
+        if search_settings.professional_role:
+            parts.append(search_settings.professional_role)
+
+        position = resume_profile.get("position")
+        if position:
+            parts.append(str(position))
+
+        for stack_key in ("primary_stack", "secondary_stack"):
+            for skill in resume_profile.get(stack_key) or []:
+                if isinstance(skill, str) and skill.strip():
+                    parts.append(skill.strip())
+
+        deduplicated: list[str] = []
+        seen: set[str] = set()
+        for part in parts:
+            normalized = part.casefold()
+            if normalized in seen:
+                continue
+            seen.add(normalized)
+            deduplicated.append(part)
+
+        if not deduplicated:
+            return None
+        return " ".join(deduplicated[:6])
 
     def _serialize_vacancy(self, vacancy: Any) -> dict[str, Any]:
         return {

@@ -20,6 +20,8 @@ class VacancyPipelineService:
             telegram_user=telegram_user,
             vacancy_id=vacancy_id,
         )
+        if not prepared.get("should_send", True):
+            return prepared
         with session_scope() as session:
             user = UserRepository(session).get_by_telegram_user_id(telegram_user.id)
             if user is not None:

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
 
     monitor_interval_minutes: int = Field(default=30)
     vacancy_send_delay_seconds: int = Field(default=120)
+    vacancy_min_match_score: int = Field(default=60)
     reminder_after_hours: int = Field(default=24)
 
     streamlit_admin_username: str = Field(default="")
