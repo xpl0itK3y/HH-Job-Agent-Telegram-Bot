@@ -17,13 +17,13 @@ FONT_PATHS = {
     ],
 }
 CARD_STORAGE_DIR = Path("storage/cards")
-W = 1200
-H = 760
-PAD = 36
-MARGIN = 52
+W = 880
+H = 1320
+PAD = 32
+MARGIN = 36
 PS = 3
-TAG_W = 190
-TAG_H = 58
+TAG_W = 236
+TAG_H = 64
 
 
 class VacancyCardService:
@@ -33,11 +33,11 @@ class VacancyCardService:
         output_path = CARD_STORAGE_DIR / f"{vacancy_tag.lstrip('#').lower()}.gif"
 
         prepared = {
-            "company": (vacancy.get("company_name") or "UNKNOWN")[:12].upper(),
+            "company": (vacancy.get("company_name") or "UNKNOWN")[:22].upper(),
             "position": vacancy.get("title") or "Untitled vacancy",
             "salary": self._format_salary(vacancy),
             "format": self._format_location(vacancy),
-            "tags": (vacancy.get("key_skills_json") or ["General"])[:3],
+            "tags": (vacancy.get("key_skills_json") or ["General"])[:4],
             "badge": self._build_badge(vacancy),
             "vacancy_tag": vacancy_tag,
             "summary": vacancy.get("description_ai_summary") or vacancy.get("description_clean") or "No summary",
@@ -46,14 +46,14 @@ class VacancyCardService:
         accent = self._random_accent((vacancy.get("id") or 0) + len(prepared["position"]))
         frames = [
             self._render_frame(prepared, frame_idx, accent, rng_seed=frame_idx * 31 + 17)
-            for frame_idx in range(42)
+            for frame_idx in range(18)
         ]
         frames[0].save(
             output_path,
             save_all=True,
             append_images=frames[1:],
             loop=0,
-            duration=60,
+            duration=90,
             optimize=False,
         )
         return output_path
@@ -92,82 +92,87 @@ class VacancyCardService:
         img.paste(card, (cx, cy), card)
         draw = ImageDraw.Draw(img)
         ox = cx + PS * 3 + MARGIN
-        card_right = cx + cw
+        inner_right = cx + cw - MARGIN
 
-        row_title = cy + 42
-        row_company = row_title + 82
-        row_divider = row_company + 80
-        row_sal_lbl = row_divider + 28
-        row_sal_val = row_sal_lbl + 38
-        row_loc_lbl = row_sal_val + 88
-        row_loc_val = row_loc_lbl + 38
-        row_bar = row_loc_val + 64
-        row_stk_lbl = row_bar + 38
-        row_tags = row_stk_lbl + 42
-        row_summary = row_tags + 96
-        row_status = cy + ch - 58
+        row_title = cy + 52
+        row_company = row_title + 170
+        row_divider = row_company + 92
+        row_sal_lbl = row_divider + 34
+        row_sal_val = row_sal_lbl + 44
+        row_loc_lbl = row_sal_val + 100
+        row_loc_val = row_loc_lbl + 42
+        row_stk_lbl = row_loc_val + 92
+        row_tags = row_stk_lbl + 52
+        row_summary = row_tags + 190
+        row_status = cy + ch - 76
 
         blink_fast = (frame_idx // 4) % 2 == 0
         blink_slow = (frame_idx // 10) % 2 == 0
         blink_cur = (frame_idx // 6) % 2 == 0
 
-        f_title = self._fnt(52, bold=True)
-        title_ox = ox + (rng.randint(-3, 3) if rng.random() < 0.15 else 0)
-        draw.text((title_ox, row_title), vacancy["position"], fill=(255, 255, 255), font=f_title)
-        if blink_cur:
-            tb = f_title.getbbox(vacancy["position"])
-            draw.rectangle([ox + tb[2] + 6, row_title + 2, ox + tb[2] + 14, row_title + 50], fill=accent)
+        f_title = self._fnt(42, bold=True)
+        title_lines = self._wrap_text(vacancy["position"], 28)[:3]
+        for idx, line in enumerate(title_lines):
+            title_ox = ox + (rng.randint(-1, 1) if rng.random() < 0.08 else 0)
+            y = row_title + idx * 50
+            draw.text((title_ox, y), line, fill=(255, 255, 255), font=f_title)
+            if idx == len(title_lines) - 1 and blink_cur:
+                tb = f_title.getbbox(line)
+                draw.rectangle([title_ox + tb[2] + 6, y + 4, title_ox + tb[2] + 14, y + 42], fill=accent)
 
-        f_company = self._fnt(34, bold=True)
+        f_company = self._fnt(28, bold=True)
         pill_bg = tuple(max(0, min(255, int(c * 0.22))) for c in accent)
-        self._px_rect(draw, ox, row_company, TAG_W, TAG_H, pill_bg)
-        self._px_border(draw, ox, row_company, TAG_W, TAG_H, accent, 4)
-        self._draw_centered_text(draw, ox, row_company, TAG_W, TAG_H, vacancy["company"], f_company)
+        company_width = min(inner_right - ox, 460)
+        self._px_rect(draw, ox, row_company, company_width, TAG_H, pill_bg)
+        self._px_border(draw, ox, row_company, company_width, TAG_H, accent, 4)
+        self._draw_centered_text(draw, ox, row_company, company_width, TAG_H, vacancy["company"], f_company)
 
-        self._px_dashed_line(draw, ox, card_right - 24, row_divider, tuple(int(c * 0.45) for c in accent))
+        self._px_dashed_line(draw, ox, inner_right, row_divider, tuple(int(c * 0.45) for c in accent))
 
-        f_label = self._fnt(21, bold=True)
-        f_salary = self._fnt(42, bold=True)
+        f_label = self._fnt(20, bold=True)
+        f_salary = self._fnt(36, bold=True)
         lbl_col = (200, 212, 235) if blink_slow else (160, 175, 200)
         draw.text((ox, row_sal_lbl), "[ SALARY ]", fill=lbl_col, font=f_label)
         draw.text((ox, row_sal_val), vacancy["salary"], fill=accent, font=f_salary)
 
-        f_info = self._fnt(28, bold=True)
+        f_info = self._fnt(30, bold=True)
         draw.text((ox, row_loc_lbl), "[ LOCATION ]", fill=lbl_col, font=f_label)
         draw.text((ox, row_loc_val), vacancy["format"], fill=accent, font=f_info)
 
-        bar_val = 0.72 + 0.04 * math.sin(frame_idx * 0.15)
-        self._px_health_bar(draw, ox, row_bar, 260, bar_val, accent)
-
         draw.text((ox, row_stk_lbl), "[ TECH STACK ]", fill=lbl_col, font=f_label)
         tx = ox
-        f_tag = self._fnt(26, bold=True)
+        ty = row_tags
+        f_tag = self._fnt(24, bold=True)
         for i, tag in enumerate(vacancy["tags"]):
             tag_acc = accent if (frame_idx + i * 7) % 20 > 2 else (255, 255, 255)
-            tx += self._px_tag(draw, tx, row_tags, tag, tag_acc, f_tag)
+            if i and i % 2 == 0:
+                tx = ox
+                ty += TAG_H + 16
+            tx += self._px_tag(draw, tx, ty, tag, tag_acc, f_tag)
 
-        f_summary = self._fnt(18)
+        f_summary = self._fnt(22)
         draw.text((ox, row_summary), "[ SUMMARY ]", fill=lbl_col, font=f_label)
-        for idx, line in enumerate(self._wrap_text(vacancy["summary"], 68)[:3]):
-            draw.text((ox, row_summary + 34 + idx * 28), line, fill=(190, 202, 222), font=f_summary)
+        summary_lines = self._wrap_text(vacancy["summary"], 40)[:8]
+        for idx, line in enumerate(summary_lines):
+            draw.text((ox, row_summary + 42 + idx * 34), line, fill=(190, 202, 222), font=f_summary)
 
         f_badge = self._fnt(24, bold=True)
         badge_bbox = f_badge.getbbox(vacancy["badge"])
         badge_w = badge_bbox[2] + 44
-        badge_x = card_right - badge_w - 8
+        badge_x = inner_right - badge_w
         badge_acc = accent if blink_fast else tuple(min(255, c + 60) for c in accent)
         self._px_badge(draw, vacancy["badge"], badge_acc, f_badge, badge_x, cy + 30)
 
-        draw.text((card_right - 220, row_status), vacancy["vacancy_tag"], fill=accent, font=self._fnt(20, bold=True))
+        draw.text((inner_right - 210, row_status), vacancy["vacancy_tag"], fill=accent, font=self._fnt(20, bold=True))
         dot_col = (0, 255, 100) if blink_fast else (0, 100, 50)
         draw.rectangle([ox, row_status + 4, ox + 16, row_status + 20], fill=dot_col)
         draw.text((ox + 26, row_status + 1), "READY", fill=(210, 220, 240), font=self._fnt(23, bold=True))
 
         img_rgb = img.convert("RGB")
-        if (frame_idx % 12) in (0, 1):
-            self._apply_noise_lines(ImageDraw.Draw(img_rgb), rng, accent, intensity=1.0)
-            img_rgb = self._apply_glitch(img_rgb, rng, intensity=1.0)
-        self._apply_pixel_noise(img_rgb, rng, density=0.0015, acc=accent)
+        if frame_idx % 18 == 0:
+            self._apply_noise_lines(ImageDraw.Draw(img_rgb), rng, accent, intensity=0.22)
+            img_rgb = self._apply_glitch(img_rgb, rng, intensity=0.18)
+        self._apply_pixel_noise(img_rgb, rng, density=0.00035, acc=accent)
         return img_rgb
 
     def _random_accent(self, seed: int) -> tuple[int, int, int]:
