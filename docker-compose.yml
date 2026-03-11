@@ -50,7 +50,7 @@ services:
     build:
       context: .
       dockerfile: docker/app.Dockerfile
-    command: streamlit run admin_app/app.py --server.address 0.0.0.0 --server.port 8501
+    command: streamlit run admin_app/main.py --server.address 0.0.0.0 --server.port 8501
     ports:
       - "8501:8501"
     depends_on:
