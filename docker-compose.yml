@@ -45,6 +45,18 @@ services:
       redis:
         condition: service_healthy
 
+  bot:
+    <<: *python-service
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    command: python -m app.bot.main
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   streamlit-admin:
     <<: *python-service
     build:
