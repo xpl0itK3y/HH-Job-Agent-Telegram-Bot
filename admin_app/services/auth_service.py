@@ -25,10 +25,8 @@ class AdminAuthService:
         env_password_hash = getattr(self.settings, "streamlit_admin_password_hash", "")
         if env_username and env_password_hash:
             if username == env_username and password_hash == env_password_hash:
-                with session_scope() as session:
-                    admin_user = AdminUserRepository(session).get_by_username(username)
                 return AdminAuthResult(
-                    admin_user_id=admin_user.id if admin_user else None,
+                    admin_user_id=None,
                     username=username,
                     role=AdminRole.ADMIN.value,
                 )

@@ -9,6 +9,9 @@ def apply_app_chrome() -> None:
     st.markdown(
         """
         <style>
+        [data-testid="stSidebarNav"] {
+            display: none;
+        }
         .stApp {
             background:
                 radial-gradient(circle at top left, rgba(29, 78, 216, 0.18), transparent 28%),
@@ -75,14 +78,16 @@ def render_sidebar(page_registry: Mapping[str, object]) -> str:
         current_page = st.session_state.get("admin_page", list(visible_registry.keys())[0])
         if current_page not in visible_registry:
             current_page = list(visible_registry.keys())[0]
+        if st.session_state.get("admin_sidebar_selection") not in visible_registry:
+            st.session_state["admin_sidebar_selection"] = current_page
         choice = st.radio(
             "Sections",
             options=list(visible_registry.keys()),
             format_func=lambda key: labels[key],
-            index=list(visible_registry.keys()).index(current_page),
+            key="admin_sidebar_selection",
             label_visibility="collapsed",
         )
         st.session_state["admin_page"] = choice
         st.divider()
-        st.caption("Streamlit internal panel")
+        st.caption("Admin navigation")
     return choice
