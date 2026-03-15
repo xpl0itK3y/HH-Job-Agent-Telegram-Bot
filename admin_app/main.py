@@ -2,7 +2,7 @@ import streamlit as st
 
 from admin_app.components.auth import clear_auth_state, require_authentication
 from admin_app.components.layout import apply_app_chrome, render_sidebar
-from admin_app.pages import PAGE_REGISTRY
+from admin_app.views import PAGE_REGISTRY
 
 
 st.set_page_config(
