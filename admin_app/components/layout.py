@@ -9,8 +9,42 @@ def apply_app_chrome() -> None:
     st.markdown(
         """
         <style>
+        [data-testid="stHeader"] {
+            display: none;
+        }
+        [data-testid="stToolbar"] {
+            display: none;
+        }
+        [data-testid="stDecoration"] {
+            display: none;
+        }
         [data-testid="stSidebarNav"] {
             display: none;
+        }
+        [data-testid="stSidebarContent"] {
+            padding-top: 0.2rem;
+        }
+        [data-testid="stSidebarUserContent"] {
+            padding-top: 0.2rem;
+        }
+        .block-container {
+            padding-top: 0.35rem !important;
+            padding-left: 1.4rem;
+            padding-right: 1.4rem;
+            max-width: none;
+        }
+        [data-testid="stAppViewContainer"] > .main {
+            padding-top: 0 !important;
+        }
+        [data-testid="stAppViewContainer"] > .main > div:first-child {
+            padding-top: 0 !important;
+        }
+        [data-testid="stAppViewContainer"] .main .block-container {
+            padding-top: 0.35rem !important;
+            padding-bottom: 2rem;
+            padding-left: 1.4rem;
+            padding-right: 1.4rem;
+            max-width: none;
         }
         .stApp {
             background:
@@ -22,6 +56,9 @@ def apply_app_chrome() -> None:
         [data-testid="stSidebar"] {
             background: linear-gradient(180deg, #08101d 0%, #0f1a2d 100%);
             border-right: 1px solid rgba(148, 163, 184, 0.15);
+        }
+        section[data-testid="stSidebar"] > div {
+            padding-top: 0;
         }
         .admin-hero {
             padding: 1.2rem 1.4rem;
