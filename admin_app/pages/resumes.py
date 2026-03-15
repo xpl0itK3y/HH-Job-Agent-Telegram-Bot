@@ -2,6 +2,7 @@ import json
 
 import streamlit as st
 
+from admin_app.components.page_header import render_page_header
 from admin_app.components.tables import dataframe_section
 from admin_app.services.db_service import AdminDBService
 
@@ -13,11 +14,7 @@ class ResumesPage:
         self.db = AdminDBService()
 
     def render(self) -> None:
-        st.markdown('<div class="admin-page-title">Resumes</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="admin-page-subtitle">Resume registry with extracted profile and LLM metadata.</div>',
-            unsafe_allow_html=True,
-        )
+        render_page_header("Resumes", "Resume registry with extracted profile and LLM metadata.")
 
         col1, col2, col3 = st.columns(3)
         with col1:

@@ -1,6 +1,7 @@
 import streamlit as st
 
 from admin_app.components.cards import metric_card
+from admin_app.components.page_header import render_page_header
 from admin_app.components.tables import dataframe_section
 from admin_app.services.db_service import AdminDBService
 
@@ -12,11 +13,7 @@ class OperationsPage:
         self.db = AdminDBService()
 
     def render(self) -> None:
-        st.markdown('<div class="admin-page-title">Operations</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="admin-page-subtitle">Queue monitor, Redis locks and operational error feed in one place.</div>',
-            unsafe_allow_html=True,
-        )
+        render_page_header("Operations", "Queue monitor, Redis locks and operational error feed in one place.")
 
         queue_snapshot = self.db.get_queue_snapshot(limit=100)
         logs = self.db.get_operational_logs(limit=100)

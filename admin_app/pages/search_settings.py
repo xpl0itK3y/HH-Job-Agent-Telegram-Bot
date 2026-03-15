@@ -2,6 +2,7 @@ import json
 
 import streamlit as st
 
+from admin_app.components.page_header import render_page_header
 from admin_app.components.tables import dataframe_section
 from admin_app.services.db_service import AdminDBService
 
@@ -13,10 +14,9 @@ class SearchSettingsPage:
         self.db = AdminDBService()
 
     def render(self) -> None:
-        st.markdown('<div class="admin-page-title">Search Settings</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="admin-page-subtitle">Registry of saved user filters, countries and search state.</div>',
-            unsafe_allow_html=True,
+        render_page_header(
+            "Search Settings",
+            "Registry of saved user filters, countries and search state.",
         )
 
         col1, col2, col3, col4 = st.columns(4)

@@ -1,6 +1,7 @@
 import streamlit as st
 
 from admin_app.components.cards import metric_card
+from admin_app.components.page_header import render_page_header
 from admin_app.components.tables import dataframe_section
 from admin_app.services.analytics_service import AnalyticsService
 
@@ -17,11 +18,7 @@ class DashboardPage:
         activity = self.analytics.get_vacancy_activity()
         failures = self.analytics.get_recent_failures()
 
-        st.markdown('<div class="admin-page-title">Dashboard</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="admin-page-subtitle">Operational view over users, vacancies and queue health.</div>',
-            unsafe_allow_html=True,
-        )
+        render_page_header("Dashboard", "Operational view over users, vacancies and queue health.")
         st.markdown(
             """
             <div class="admin-hero">

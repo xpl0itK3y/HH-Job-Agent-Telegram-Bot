@@ -1,6 +1,7 @@
 import streamlit as st
 
 from admin_app.components.auth import is_admin
+from admin_app.components.page_header import render_page_header
 from admin_app.services.admin_actions_service import AdminActionsService
 
 
@@ -16,10 +17,9 @@ class AdminToolsPage:
             st.error("Admin role is required for destructive tools.")
             return
 
-        st.markdown('<div class="admin-page-title">Admin Tools</div>', unsafe_allow_html=True)
-        st.markdown(
-            '<div class="admin-page-subtitle">Manual operator actions for user status and queue recovery.</div>',
-            unsafe_allow_html=True,
+        render_page_header(
+            "Admin Tools",
+            "Manual operator actions for user status and queue recovery.",
         )
 
         admin_user_id = st.session_state.get("admin_auth", {}).get("admin_user_id")
