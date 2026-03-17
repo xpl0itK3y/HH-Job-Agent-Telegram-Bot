@@ -42,7 +42,7 @@ async def settings_country_callback(callback: CallbackQuery) -> None:
 
     selected = callback.data.removeprefix("settings:country:")
     search_setting_service.update_countries(telegram_user=callback.from_user, selected=selected)
-    await callback.message.answer(f"Страны поиска сохранены: {selected}")
+    await callback.message.answer("Страны поиска сохранены.")
     await callback.answer()
 
 
@@ -57,7 +57,7 @@ async def settings_format_callback(callback: CallbackQuery) -> None:
         telegram_user=callback.from_user,
         work_format=work_format,
     )
-    await callback.message.answer(f"Формат работы сохранен: {work_format}")
+    await callback.message.answer("Формат работы сохранен.")
     await callback.answer()
 
 
@@ -72,7 +72,7 @@ async def settings_employment_callback(callback: CallbackQuery) -> None:
         telegram_user=callback.from_user,
         employment_type=employment_type,
     )
-    await callback.message.answer(f"Тип занятости сохранен: {employment_type}")
+    await callback.message.answer("Тип занятости сохранен.")
     await callback.answer()
 
 
@@ -88,7 +88,7 @@ async def settings_toggle_callback(callback: CallbackQuery) -> None:
         is_enabled=is_enabled,
     )
     await callback.message.answer(
-        "Поиск включен." if is_enabled else "Поиск отключен."
+        "Поток вакансий включен." if is_enabled else "Поток вакансий отключен."
     )
     await callback.answer()
 
@@ -115,7 +115,7 @@ async def areas_message_handler(message: Message) -> None:
         await message.answer("Неверный формат areas. Используйте, например: areas: 40,113")
         return
     search_setting_service.update_area_ids(telegram_user=message.from_user, area_ids=area_ids)
-    await message.answer(f"Area IDs сохранены: {area_ids}")
+    await message.answer(f"Идентификаторы регионов сохранены: {area_ids}")
 
 
 @router.message(F.text.startswith("role:"))

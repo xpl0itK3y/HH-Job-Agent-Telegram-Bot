@@ -124,6 +124,10 @@ class VacancySearchService:
             "full-time": "full",
             "part-time": "part",
             "project": "project",
+            "internship": "internship",
+            "volunteer": "volunteer",
+            "combined": None,
+            "any": None,
         }
         return mapping.get(employment_type, employment_type)
 
@@ -135,5 +139,6 @@ class VacancySearchService:
             # HH schedule filter does not support office/hybrid values from our UI.
             "office": None,
             "hybrid": None,
+            "any": None,
         }
         return mapping.get(work_format, work_format)

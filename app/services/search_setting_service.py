@@ -44,13 +44,13 @@ class SearchSettingService:
             settings = SearchSettingRepository(session).get_or_create(user.id)
             return (
                 "Текущие настройки поиска:\n"
-                f"- keywords: {settings.keywords or 'не заданы'}\n"
-                f"- countries: {settings.selected_countries_json or 'не заданы'}\n"
-                f"- area_ids: {settings.area_ids_json or 'не заданы'}\n"
-                f"- employment: {settings.employment_type or 'не задано'}\n"
-                f"- work_format: {settings.work_format or 'не задан'}\n"
-                f"- role: {settings.professional_role or 'не задана'}\n"
-                f"- enabled: {'yes' if settings.is_enabled else 'no'}"
+                f"- ключевые слова: {settings.keywords or 'не заданы'}\n"
+                f"- страны: {self._format_countries(settings.selected_countries_json)}\n"
+                f"- регионы: {settings.area_ids_json or 'не заданы'}\n"
+                f"- занятость: {self._employment_label(settings.employment_type)}\n"
+                f"- формат работы: {self._work_format_label(settings.work_format)}\n"
+                f"- роль: {settings.professional_role or 'не задана'}\n"
+                f"- поток вакансий: {'включен' if settings.is_enabled else 'выключен'}"
             )
 
     def _update_fields(self, *, telegram_user: TelegramUser, **fields: object) -> None:
@@ -66,3 +66,30 @@ class SearchSettingService:
             for key, value in fields.items():
                 setattr(settings, key, value)
             session.flush()
+
+    def _format_countries(self, countries: list | None) -> str:
+        if not countries:
+            return "не заданы"
+        mapping = {"KZ": "Казахстан", "RU": "Россия"}
+        return ", ".join(mapping.get(country, str(country)) for country in countries)
+
+    def _work_format_label(self, value: str | None) -> str:
+        mapping = {
+            "remote": "Удаленно",
+            "office": "Офис",
+            "hybrid": "Гибрид",
+            "any": "Не важно",
+        }
+        return mapping.get(value or "", "не задан")
+
+    def _employment_label(self, value: str | None) -> str:
+        mapping = {
+            "full-time": "Полная занятость",
+            "part-time": "Частичная занятость",
+            "project": "Проектная работа",
+            "internship": "Стажировка",
+            "volunteer": "Волонтерство",
+            "combined": "Совмещение",
+            "any": "Не важно",
+        }
+        return mapping.get(value or "", "не задана")
