@@ -5,6 +5,7 @@ from app.services.resume_service import ResumeService
 
 router = Router(name="onboarding")
 resume_service = ResumeService()
+MAX_RESUME_PDF_SIZE_BYTES = 10 * 1024 * 1024
 
 
 @router.callback_query(F.data == "onboarding:upload_resume")
@@ -24,6 +25,9 @@ async def pdf_resume_handler(message: Message, bot: Bot) -> None:
     document = message.document
     if document is None or message.from_user is None:
         await message.answer("Не удалось обработать PDF.")
+        return
+    if document.file_size and document.file_size > MAX_RESUME_PDF_SIZE_BYTES:
+        await message.answer("PDF слишком большой. Отправьте файл до 10 MB.")
         return
 
     file_info = await bot.get_file(document.file_id)

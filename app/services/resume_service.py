@@ -16,6 +16,7 @@ from app.utils.text_normalizer import normalize_text
 
 
 RESUME_STORAGE_DIR = Path("storage/resumes")
+RESUME_TEXT_MAX_LENGTH = 50_000
 
 
 @dataclass(slots=True)
@@ -34,7 +35,7 @@ class ResumeService:
         telegram_user: TelegramUser,
         text: str,
     ) -> ResumeProcessingResult:
-        normalized_text = normalize_text(text)
+        normalized_text = normalize_text(text, max_chunk_length=RESUME_TEXT_MAX_LENGTH)
         with session_scope() as session:
             user = UserRepository(session).create_or_update_telegram_user(
                 telegram_user_id=telegram_user.id,
@@ -108,7 +109,7 @@ class ResumeService:
         pdf_bytes: bytes,
     ) -> ResumeProcessingResult:
         text = extract_text_from_pdf(pdf_bytes)
-        normalized_text = normalize_text(text)
+        normalized_text = normalize_text(text, max_chunk_length=RESUME_TEXT_MAX_LENGTH)
         stored_path = self._store_resume_file(telegram_user.id, filename, pdf_bytes)
 
         with session_scope() as session:
