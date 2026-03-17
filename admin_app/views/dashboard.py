@@ -39,6 +39,8 @@ class DashboardPage:
         with col4:
             metric_card("Vacancies", str(summary["vacancies_total"]), "Normalized vacancies")
 
+        st.markdown("<div style='height: 1rem;'></div>", unsafe_allow_html=True)
+
         col5, col6, col7, col8 = st.columns(4)
         with col5:
             metric_card("Queued", str(summary["queued_total"]), "Waiting in pipeline")
@@ -49,11 +51,15 @@ class DashboardPage:
         with col8:
             metric_card("Sent Today", str(summary["sent_today"]), "Delivered today")
 
+        st.markdown("<div style='height: 1.1rem;'></div>", unsafe_allow_html=True)
+
         left, right = st.columns([1.4, 1])
         with left:
             dataframe_section("Recent sent vacancies", self.analytics.get_recent_sent_vacancies())
         with right:
             dataframe_section("Recent users", self.analytics.get_recent_users())
+
+        st.markdown("<div style='height: 0.6rem;'></div>", unsafe_allow_html=True)
 
         chart_col, split_col = st.columns([1.4, 1])
         with chart_col:
@@ -64,5 +70,7 @@ class DashboardPage:
                 st.info("No activity yet.")
         with split_col:
             dataframe_section("Country split", country_split)
+
+        st.markdown("<div style='height: 0.6rem;'></div>", unsafe_allow_html=True)
 
         dataframe_section("Recent failures", failures)
