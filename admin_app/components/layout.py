@@ -87,6 +87,16 @@ def apply_app_chrome() -> None:
             color: #94a3b8;
             margin-bottom: 1.4rem;
         }
+        .admin-auth-shell {
+            padding: 1.25rem 0 0.5rem;
+        }
+        .admin-auth-card {
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(15, 23, 42, 0.72);
+            border-radius: 18px;
+            padding: 0.9rem 1rem 1rem;
+            box-shadow: 0 22px 60px rgba(8, 15, 31, 0.28);
+        }
         </style>
         """,
         unsafe_allow_html=True,

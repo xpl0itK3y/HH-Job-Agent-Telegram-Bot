@@ -36,7 +36,8 @@ def require_authentication() -> dict:
         return auth_state
 
     service = AdminAuthService()
-    left, center, right = st.columns([1, 1.2, 1])
+    st.markdown("<div style='height: 4rem;'></div>", unsafe_allow_html=True)
+    left, center, right = st.columns([1, 1.15, 1])
     with center:
         st.markdown('<div class="admin-page-title">Admin Login</div>', unsafe_allow_html=True)
         st.markdown(
