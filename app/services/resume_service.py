@@ -11,7 +11,7 @@ from app.db.repositories.user_repository import UserRepository
 from app.db.session import session_scope
 from app.integrations.deepseek.client import DeepSeekClient
 from app.tasks.triggers import trigger_user_monitoring
-from app.utils.pdf import extract_text_from_pdf
+from app.utils.document import extract_text_from_document
 from app.utils.text_normalizer import normalize_text
 
 
@@ -130,6 +130,52 @@ class ResumeService:
             resume = ResumeRepository(session).create(
                 user_id=user.id,
                 source_type=ResumeSourceType.PDF,
+                file_path=str(stored_path),
+                raw_text=text,
+                parsed_profile_json=profile.model_dump(),
+                summary=profile.summary,
+                llm_prompt_version="resume_profile_v1",
+                llm_model_name=self.deepseek_client.settings.deepseek_model,
+                llm_generated_at=datetime.now(UTC),
+            )
+            telegram_user_id = user.telegram_user_id
+        trigger_user_monitoring(telegram_user_id)
+        return ResumeProcessingResult(resume=resume, normalized_text=normalized_text)
+
+    def save_document_resume(
+        self,
+        *,
+        telegram_user: TelegramUser,
+        filename: str,
+        mime_type: str | None,
+        file_bytes: bytes,
+    ) -> ResumeProcessingResult:
+        text = extract_text_from_document(
+            filename=filename,
+            mime_type=mime_type,
+            file_bytes=file_bytes,
+        )
+        normalized_text = normalize_text(text, max_chunk_length=RESUME_TEXT_MAX_LENGTH)
+        stored_path = self._store_resume_file(telegram_user.id, filename, file_bytes)
+
+        with session_scope() as session:
+            user = UserRepository(session).create_or_update_telegram_user(
+                telegram_user_id=telegram_user.id,
+                username=telegram_user.username,
+                first_name=telegram_user.first_name,
+                last_name=telegram_user.last_name,
+                language_code=telegram_user.language_code,
+            )
+            cached_resume = ResumeRepository(session).get_cached_by_raw_text(
+                user_id=user.id,
+                raw_text=text,
+            )
+            if cached_resume is not None and cached_resume.parsed_profile_json:
+                return ResumeProcessingResult(resume=cached_resume, normalized_text=normalized_text)
+            profile = self.deepseek_client.extract_resume_profile(normalized_text)
+            resume = ResumeRepository(session).create(
+                user_id=user.id,
+                source_type=ResumeSourceType.FILE,
                 file_path=str(stored_path),
                 raw_text=text,
                 parsed_profile_json=profile.model_dump(),

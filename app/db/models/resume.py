@@ -13,6 +13,7 @@ from app.db.models.mixins import TimestampMixin
 
 class ResumeSourceType(StrEnum):
     PDF = "pdf"
+    FILE = "file"
     TEXT = "text"
     LINK = "link"
 

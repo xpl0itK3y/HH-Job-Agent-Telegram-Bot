@@ -2,15 +2,19 @@ from aiogram import Bot, F, Router
 from aiogram.types import CallbackQuery, Message
 
 from app.services.resume_service import ResumeService
+from app.utils.document import UnsupportedDocumentFormatError
 
 router = Router(name="onboarding")
 resume_service = ResumeService()
-MAX_RESUME_PDF_SIZE_BYTES = 10 * 1024 * 1024
+MAX_RESUME_FILE_SIZE_BYTES = 10 * 1024 * 1024
 
 
 @router.callback_query(F.data == "onboarding:upload_resume")
 async def upload_resume_callback(callback: CallbackQuery) -> None:
-    await callback.message.answer("Отправьте резюме PDF-файлом или текстом одним сообщением.")
+    await callback.message.answer(
+        "Отправьте резюме файлом или текстом одним сообщением.\n"
+        "Поддерживаются: PDF, DOCX, ODT, TXT, MD, HTML, RTF. Размер файла до 10 MB."
+    )
     await callback.answer()
 
 
@@ -26,8 +30,8 @@ async def pdf_resume_handler(message: Message, bot: Bot) -> None:
     if document is None or message.from_user is None:
         await message.answer("Не удалось обработать PDF.")
         return
-    if document.file_size and document.file_size > MAX_RESUME_PDF_SIZE_BYTES:
-        await message.answer("PDF слишком большой. Отправьте файл до 10 MB.")
+    if document.file_size and document.file_size > MAX_RESUME_FILE_SIZE_BYTES:
+        await message.answer("Файл слишком большой. Отправьте файл до 10 MB.")
         return
 
     file_info = await bot.get_file(document.file_id)
@@ -46,6 +50,43 @@ async def pdf_resume_handler(message: Message, bot: Bot) -> None:
 
     await message.answer(
         "PDF-резюме сохранено.\n"
+        f"Извлечено символов: {len(result.resume.raw_text)}\n"
+        f"Нормализованный текст: {len(result.normalized_text)} символов."
+    )
+
+
+@router.message(F.document & (F.document.mime_type != "application/pdf"))
+async def document_resume_handler(message: Message, bot: Bot) -> None:
+    document = message.document
+    if document is None or message.from_user is None:
+        await message.answer("Не удалось обработать файл.")
+        return
+    if document.mime_type == "application/pdf":
+        return
+    if document.file_size and document.file_size > MAX_RESUME_FILE_SIZE_BYTES:
+        await message.answer("Файл слишком большой. Отправьте файл до 10 MB.")
+        return
+
+    file_info = await bot.get_file(document.file_id)
+    file_data = await bot.download_file(file_info.file_path)
+    file_bytes = file_data.read()
+
+    try:
+        result = resume_service.save_document_resume(
+            telegram_user=message.from_user,
+            filename=document.file_name or "resume",
+            mime_type=document.mime_type,
+            file_bytes=file_bytes,
+        )
+    except UnsupportedDocumentFormatError as exc:
+        await message.answer(str(exc))
+        return
+    except Exception:
+        await message.answer("Не удалось извлечь текст из файла. Попробуйте другой формат.")
+        return
+
+    await message.answer(
+        "Файл-резюме сохранен.\n"
         f"Извлечено символов: {len(result.resume.raw_text)}\n"
         f"Нормализованный текст: {len(result.normalized_text)} символов."
     )
