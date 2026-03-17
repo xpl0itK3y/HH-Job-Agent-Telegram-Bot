@@ -1,8 +1,10 @@
+from app.db.models.user import BotStatus
 from app.tasks.monitor import monitor_new_vacancies
 
 
 class _DummyUser:
     id = 7
+    bot_status = BotStatus.ACTIVE
 
 
 class _DummyUserRepo:
@@ -46,3 +48,20 @@ def test_monitor_new_vacancies_queues_found_vacancies(monkeypatch) -> None:
     result = monitor_new_vacancies(11)
     assert result == {"status": "queued", "telegram_user_id": 11, "count": 2}
     assert queued == [(11, 101), (11, 102)]
+
+
+def test_monitor_new_vacancies_skips_paused_user(monkeypatch) -> None:
+    class _PausedUser:
+        id = 7
+        bot_status = BotStatus.PAUSED
+
+    class _PausedUserRepo:
+        def get_by_telegram_user_id(self, telegram_user_id: int):
+            return _PausedUser()
+
+    monkeypatch.setattr("app.tasks.monitor.session_scope", lambda: _DummyScope())
+    monkeypatch.setattr("app.tasks.monitor.UserRepository", lambda session: _PausedUserRepo())
+    monkeypatch.setattr("app.tasks.monitor.SearchSettingRepository", lambda session: _DummySettingsRepo())
+
+    result = monitor_new_vacancies(11)
+    assert result == {"status": "disabled", "telegram_user_id": 11}

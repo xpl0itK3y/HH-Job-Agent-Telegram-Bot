@@ -1,5 +1,6 @@
 from aiogram.types import User as TelegramUser
 
+from app.db.models.user import BotStatus
 from app.db.repositories.search_setting_repository import SearchSettingRepository
 from app.db.repositories.user_repository import UserRepository
 from app.db.session import session_scope
@@ -28,7 +29,22 @@ class SearchSettingService:
         self._update_fields(telegram_user=telegram_user, professional_role=professional_role)
 
     def set_enabled(self, *, telegram_user: TelegramUser, is_enabled: bool) -> None:
-        self._update_fields(telegram_user=telegram_user, is_enabled=is_enabled)
+        with session_scope() as session:
+            user_repository = UserRepository(session)
+            user = user_repository.create_or_update_telegram_user(
+                telegram_user_id=telegram_user.id,
+                username=telegram_user.username,
+                first_name=telegram_user.first_name,
+                last_name=telegram_user.last_name,
+                language_code=telegram_user.language_code,
+            )
+            settings = SearchSettingRepository(session).get_or_create(user.id)
+            settings.is_enabled = is_enabled
+            if is_enabled:
+                user_repository.set_bot_status(
+                    telegram_user_id=telegram_user.id,
+                    bot_status=BotStatus.ACTIVE,
+                )
         if is_enabled:
             trigger_user_monitoring(telegram_user.id)
 

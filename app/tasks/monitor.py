@@ -1,6 +1,7 @@
 from aiogram.types import User as TelegramUser
 
 from app.db.models.sent_vacancy import ProcessingStatus
+from app.db.models.user import BotStatus
 from app.db.repositories.search_setting_repository import SearchSettingRepository
 from app.db.repositories.sent_vacancy_repository import SentVacancyRepository
 from app.db.repositories.user_repository import UserRepository
@@ -30,7 +31,7 @@ def monitor_new_vacancies(telegram_user_id: int) -> dict:
         if user is None:
             raise ValueError(f"User with telegram id {telegram_user_id} not found")
         settings = SearchSettingRepository(session).get_or_create(user.id)
-        if not settings.is_enabled:
+        if not settings.is_enabled or user.bot_status != BotStatus.ACTIVE:
             return {"status": "disabled", "telegram_user_id": telegram_user_id}
 
     telegram_user = TelegramUser(id=telegram_user_id, is_bot=False, first_name="User")
